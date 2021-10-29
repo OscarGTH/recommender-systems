@@ -5,8 +5,6 @@ import java.io.IOException;
 // Importing utility classes
 import java.util.*;
 
-import javax.sound.sampled.SourceDataLine;
-
 public class Recommender {
     final static String genreSource = "ml-100k/u.genre";
     final static String dataSource = "ml-100k/u.data";

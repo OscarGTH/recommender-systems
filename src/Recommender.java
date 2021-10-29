@@ -5,6 +5,8 @@ import java.io.IOException;
 // Importing utility classes
 import java.util.*;
 
+import javax.sound.sampled.SourceDataLine;
+
 public class Recommender {
     final static String genreSource = "ml-100k/u.genre";
     final static String dataSource = "ml-100k/u.data";
@@ -114,33 +116,77 @@ public class Recommender {
     /**
      * Calculate similarity between two users.
      * 
+     * Returns NaN if either of the arrays has zero variance (i.e., if one 
+     * of the arrays does not contain at least two distinct values)
+     * 
      * @param user1RatingData The rating data of the user 1.
      * @param user2RatingData The rating data of the user 2.
-     * @return similarity value between the users.
+     * @return Pearson's correlation coefficient for two arrays (users). 
      */
-    public static double calculateSimilarity(HashMap<Integer, Integer> user1RatingData,
-            HashMap<Integer, Integer> user2RatingData) {
-        double similarity = 0;
-        List<Integer> commonItems = new ArrayList<Integer>();
+    public static float calculateSimilarity(HashMap<Integer, Integer> user1RatingData,
+        HashMap<Integer, Integer> user2RatingData) {
+        
+        ArrayList<Integer> user1Ratings = new ArrayList<>();
+        ArrayList<Integer> user2Ratings = new ArrayList<>();
 
         // Check which movies user 1 and user 2 have in common
         for (Integer item : user1RatingData.keySet()) {
             // If movie id can be found from user 2, then they have both rated the movie
             if (user2RatingData.containsKey(item)) {
-                // Adding movie id to common items list
-                commonItems.add(item);
+                // Adding rating to users rating list
+                user1Ratings.add(user1RatingData.get(item));
+                user2Ratings.add(user2RatingData.get(item));
             }
         }
-        if (commonItems.size() > 0) {
+        //common array length should be higher than two to compute correlation coefficient
+        if (user1Ratings.size() > 2) {
+
             // Calculating mean for both users.
-            double user1Mean = calculateRatingMean(user1RatingData);
-            double user2Mean = calculateRatingMean(user2RatingData);
+            //double user1Mean = calculateRatingMean(user1RatingData);
+            //double user2Mean = calculateRatingMean(user2RatingData);
+            
+            int sumUser1 = 0;
+            int sumUser2 = 0;
+            int sumBoth = 0;
+            int squareSum1 = 0;
+            int squareSum2 = 0;
+            int n = user1Ratings.size();
+
+
+            for (int i= 0; i < n; i++) {
+                // sum of user1 ratings
+                sumUser1 = sumUser1 + user1Ratings.get(i);
+       
+                // sum of user2 ratings
+                sumUser2 = sumUser2 + user2Ratings.get(i);
+       
+                // sum of both users' ratings
+                sumBoth = sumBoth + user1Ratings.get(i) * user2Ratings.get(i);
+       
+                // sum of square of array elements
+                squareSum1 = squareSum1 + user1Ratings.get(i) * user1Ratings.get(i);
+                squareSum2 = squareSum2 + user2Ratings.get(i) * user2Ratings.get(i);
+            }
+            
+            System.out.println("User1 ratings: " + user1Ratings);
+            System.out.println("User2 ratings: " + user2Ratings);
+            
+            //computing Pearson's correlation coefficient for user1 and user2
+            float similarity = (float)(n * sumBoth - sumUser1 * sumUser2) / 
+                               (float)(Math.sqrt((n * squareSum1 - sumUser1 * sumUser1) * (n * squareSum2 - sumUser2 * sumUser2)));
+
+            System.out.println("Similarity");
+            System.out.println(similarity);
+            System.out.println("----------");
+
+            return similarity;
+
             // https://www.geeksforgeeks.org/program-find-correlation-coefficient/
         } else {
             return 0;
         }
 
-        return similarity;
+        
     }
 
     public static double calculateRatingMean(HashMap<Integer, Integer> ratingData) {

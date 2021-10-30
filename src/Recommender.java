@@ -96,7 +96,7 @@ public class Recommender {
             // Iterating over unprocessed users.
             for (int i = 0; i < unprocessedUsers.size(); i++) {
                 for (int x = 0; x < userRatingData.size(); x++) {
-                    if (userRatingData.get(x)[0] == i) {
+                    if (userRatingData.get(x)[0] == unprocessedUsers.get(i)) {
                         user2RatingData.put(userRatingData.get(x)[1], userRatingData.get(x)[2]);
                     }
                 }
@@ -180,6 +180,7 @@ public class Recommender {
             return similarity;
 
             // https://www.geeksforgeeks.org/program-find-correlation-coefficient/
+            // https://www.wallstreetmojo.com/pearson-correlation-coefficient/
         } else {
             return 0;
         }

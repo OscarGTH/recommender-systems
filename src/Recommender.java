@@ -12,7 +12,7 @@ public class Recommender {
     public static void main(String[] args) throws Exception {
         getLineCount(dataSource);
         readMovieData(dataSource);
-        findSimilarUsers(100, dataSource);
+        findSimilarAndPredict(100, dataSource);
     }
 
     // Prints line count of the dataset
@@ -54,7 +54,7 @@ public class Recommender {
         }
     }
 
-    public static void findSimilarUsers(int userId, String dataSource) {
+    public static void findSimilarAndPredict(int userId, String dataSource) {
         try {
             BufferedReader reader = new BufferedReader(new FileReader(dataSource));
             // Key is item id, value is rating for the item.
@@ -91,7 +91,7 @@ public class Recommender {
             if (reader != null) {
                 reader.close();
             }
-
+            HashMap<Float, Integer> sims = new HashMap<Float, Integer>();
             List<Integer> unprocessedUsers = new ArrayList<>(unprocessedUsersSet);
             // Iterating over unprocessed users.
             for (int i = 0; i < unprocessedUsers.size(); i++) {
@@ -101,9 +101,47 @@ public class Recommender {
                     }
                 }
                 // Calculating similarity
-                double similarity = calculateSimilarity(user1RatingData, user2RatingData);
+                float similarity = calculateSimilarity(user1RatingData, user2RatingData);
+
+                if (!Float.isNaN(similarity)) {
+                    sims.put(similarity, unprocessedUsers.get(i));
+                }
+
                 user2RatingData.clear();
             }
+            // Sorting similarity values from low to high.
+            // (Similarity : User Id)
+            TreeMap<Float, Integer> sorted = new TreeMap<>(sims);
+            // Most similar neighbors
+            HashMap<Integer, Float> neighbors = new HashMap<Integer, Float>();
+            // Iterating through sorted tree map
+            for (int i = 0; i < sorted.size(); i++) {
+                // Get user if their similarity is more than 0.50.
+                if ((Float) sorted.keySet().toArray()[i] > 0.50) {
+                    // Getting value by index.
+                    Float myKey = (Float) sorted.keySet().toArray()[i];
+                    // Putting neighbor's values into hash map (User id : similarity)
+                    neighbors.put(sorted.get(myKey), myKey);
+                }
+            }
+            HashMap<Float, Integer> predictions = new HashMap<Float, Integer>();
+            // Iterating through every movie
+            for (int i = 0; i < 1682; i++) {
+                // Checking that user hasn't rated the movie already
+                if (!user1RatingData.containsKey(i)) {
+                    System.out.println(i);
+                    float prediction = 0.0f;
+                    // Predicting rating for the movie
+                    prediction = predictRating(user1RatingData, neighbors, userRatingData, i);
+                    // predictions.put(prediction, i);
+                }
+            }
+            // Sorting predictio values from low to high.
+            // (Similarity : User Id)
+            TreeMap<Float, Integer> sorted_predictions = new TreeMap<>(predictions);
+            HashMap<Integer, Float> recommendations = getClosestNeighbors(20, sorted_predictions);
+            System.out.println(recommendations);
+
         } catch (FileNotFoundException fnfe) {
             System.out.println(fnfe);
         } catch (IOException ioExc) {
@@ -111,19 +149,34 @@ public class Recommender {
         }
     }
 
+    public static HashMap<Integer, Float> getClosestNeighbors(Integer k, TreeMap<Float, Integer> sorted) {
+        HashMap<Integer, Float> neighbors = new HashMap<Integer, Float>();
+        for (int i = 0; i < sorted.size(); i++) {
+            // Go through, if index is the less or equal than the last n elements in tree
+            // map.
+            if (i >= (sorted.size() - k)) {
+                // Getting value by index.
+                Float myKey = (Float) sorted.keySet().toArray()[i];
+                // Putting neighbor's values into hash map (User id : similarity)
+                neighbors.put(sorted.get(myKey), myKey);
+            }
+        }
+        return neighbors;
+    }
+
     /**
      * Calculate similarity between two users.
      * 
-     * Returns NaN if either of the arrays has zero variance (i.e., if one 
-     * of the arrays does not contain at least two distinct values)
+     * Returns NaN if either of the arrays has zero variance (i.e., if one of the
+     * arrays does not contain at least two distinct values)
      * 
      * @param user1RatingData The rating data of the user 1.
      * @param user2RatingData The rating data of the user 2.
-     * @return Pearson's correlation coefficient for two arrays (users). 
+     * @return Pearson's correlation coefficient for two arrays (users).
      */
     public static float calculateSimilarity(HashMap<Integer, Integer> user1RatingData,
-        HashMap<Integer, Integer> user2RatingData) {
-        
+            HashMap<Integer, Integer> user2RatingData) {
+
         ArrayList<Integer> user1Ratings = new ArrayList<>();
         ArrayList<Integer> user2Ratings = new ArrayList<>();
 
@@ -136,46 +189,41 @@ public class Recommender {
                 user2Ratings.add(user2RatingData.get(item));
             }
         }
-        //common array length should be higher than two to compute correlation coefficient
+        // common array length should be higher than two to compute correlation
+        // coefficient
         if (user1Ratings.size() > 2) {
 
             // Calculating mean for both users.
-            //double user1Mean = calculateRatingMean(user1RatingData);
-            //double user2Mean = calculateRatingMean(user2RatingData);
-            
+            // double user1Mean = calculateRatingMean(user1RatingData);
+            // double user2Mean = calculateRatingMean(user2RatingData);
+
             int sumUser1 = 0;
             int sumUser2 = 0;
-            int sumBoth = 0;
+            int crossSum = 0;
             int squareSum1 = 0;
             int squareSum2 = 0;
             int n = user1Ratings.size();
 
-
-            for (int i= 0; i < n; i++) {
+            for (int i = 0; i < n; i++) {
                 // sum of user1 ratings
                 sumUser1 = sumUser1 + user1Ratings.get(i);
-       
+
                 // sum of user2 ratings
                 sumUser2 = sumUser2 + user2Ratings.get(i);
-       
+
                 // sum of both users' ratings
-                sumBoth = sumBoth + user1Ratings.get(i) * user2Ratings.get(i);
-       
+                crossSum = crossSum + user1Ratings.get(i) * user2Ratings.get(i);
+
                 // sum of square of array elements
                 squareSum1 = squareSum1 + user1Ratings.get(i) * user1Ratings.get(i);
                 squareSum2 = squareSum2 + user2Ratings.get(i) * user2Ratings.get(i);
             }
-            
-            System.out.println("User1 ratings: " + user1Ratings);
-            System.out.println("User2 ratings: " + user2Ratings);
-            
-            //computing Pearson's correlation coefficient for user1 and user2
-            float similarity = (float)(n * sumBoth - sumUser1 * sumUser2) / 
-                               (float)(Math.sqrt((n * squareSum1 - sumUser1 * sumUser1) * (n * squareSum2 - sumUser2 * sumUser2)));
 
-            System.out.println("Similarity");
-            System.out.println(similarity);
-            System.out.println("----------");
+            // computing Pearson's correlation coefficient for user1 and user2
+            float top = (float) (n * crossSum) - (sumUser1 * sumUser2);
+            float bot = (float) Math.sqrt(n * squareSum1 - Math.pow(sumUser1, 2))
+                    * (float) Math.sqrt(n * squareSum2 - Math.pow(sumUser2, 2));
+            float similarity = top / bot;
 
             return similarity;
 
@@ -185,20 +233,40 @@ public class Recommender {
             return 0;
         }
 
-        
     }
 
-    public static double calculateRatingMean(HashMap<Integer, Integer> ratingData) {
-        double mean;
-        int sum = 0;
-        // Iterating over values of hashmap
-        for (Integer rating : ratingData.values()) {
-            // Increasing sum of rating values
-            sum = sum + rating;
+    // Predicts user rating for a movie.
+    public static float predictRating(HashMap<Integer, Integer> user1RatingData, HashMap<Integer, Float> neighbors,
+            List<int[]> userRatingData, Integer movieId) {
+        HashMap<Integer, Integer> user2RatingData = new HashMap<Integer, Integer>();
+        float top = 0.0f;
+        float bot = 0.0f;
+        float prediction = 0.0f;
+        for (Integer neighbor : neighbors.keySet()) {
+
+            for (int i = 0; i < userRatingData.size(); i++) {
+                if (userRatingData.get(i)[0] == neighbor) {
+                    user2RatingData.put(userRatingData.get(i)[1], userRatingData.get(i)[2]);
+                }
+            }
+
+            if (user2RatingData.containsKey(movieId)) {
+                // Get similarity of neighbor
+                float similarity = neighbors.get(neighbor);
+                // User 2 rating of movie
+                Integer rating = user2RatingData.get(movieId);
+                top += similarity * rating;
+                bot += similarity;
+            }
         }
-        // Diving sum by amount of ratings.
-        mean = sum / ratingData.size();
-        // Returning mean.
-        return mean;
+        // Making sure top and bottom part of formula are neither zero.
+        if (top != 0 && bot != 0) {
+            prediction = top / bot;
+        }
+        return prediction;
+    }
+
+    public static HashMap<Integer, Float> checkUser(HashMap<Integer, Float> neighbors) {
+        return neighbors;
     }
 }

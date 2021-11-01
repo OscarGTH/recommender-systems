@@ -12,7 +12,7 @@ public class Recommender {
     public static void main(String[] args) throws Exception {
         getLineCount(dataSource);
         readMovieData(dataSource);
-        findSimilarAndPredict(100, dataSource);
+        findSimilarAndPredict(150, dataSource);
     }
 
     // Prints line count of the dataset
@@ -140,7 +140,21 @@ public class Recommender {
             // (Similarity : User Id)
             TreeMap<Float, Integer> sorted_predictions = new TreeMap<>(predictions);
             HashMap<Integer, Float> recommendations = getClosestNeighbors(20, sorted_predictions);
-            System.out.println(recommendations);
+
+            System.out.println("\n***************");
+            System.out.println("Top 10 similar users:\n");
+            for (Integer neighbor : neighbors.keySet()) {
+                System.out.println("--------------");
+                System.out.println("User ID " + Integer.toString(neighbor) + " Similarity: "
+                        + Float.toString(neighbors.get(neighbor)));
+            }
+            System.out.println("\n***************");
+            System.out.println("Top 20 recommended movies:\n");
+            for (Integer recommendation : recommendations.keySet()) {
+                System.out.println("--------------");
+                System.out.println("Movie ID " + Integer.toString(recommendation) + " Prediction of rating: "
+                        + Float.toString(recommendations.get(recommendation)));
+            }
 
         } catch (FileNotFoundException fnfe) {
             System.out.println(fnfe);
@@ -192,11 +206,6 @@ public class Recommender {
         // common array length should be higher than two to compute correlation
         // coefficient
         if (user1Ratings.size() > 2) {
-
-            // Calculating mean for both users.
-            // double user1Mean = calculateRatingMean(user1RatingData);
-            // double user2Mean = calculateRatingMean(user2RatingData);
-
             int sumUser1 = 0;
             int sumUser2 = 0;
             int crossSum = 0;
@@ -220,47 +229,55 @@ public class Recommender {
             }
 
             // computing Pearson's correlation coefficient for user1 and user2
+            // Top part of formula
             float top = (float) (n * crossSum) - (sumUser1 * sumUser2);
+            // Bottom part of formula
             float bot = (float) Math.sqrt(n * squareSum1 - Math.pow(sumUser1, 2))
                     * (float) Math.sqrt(n * squareSum2 - Math.pow(sumUser2, 2));
+            // Dividing top part with bottom part
             float similarity = top / bot;
 
             return similarity;
-
-            // https://www.geeksforgeeks.org/program-find-correlation-coefficient/
-            // https://www.wallstreetmojo.com/pearson-correlation-coefficient/
         } else {
             return 0;
         }
-
     }
 
     // Predicts user rating for a movie.
     public static float predictRating(HashMap<Integer, Integer> user1RatingData, HashMap<Integer, Float> neighbors,
             List<int[]> userRatingData, Integer movieId) {
-        HashMap<Integer, Integer> user2RatingData = new HashMap<Integer, Integer>();
-        float top = 0.0f;
-        float bot = 0.0f;
-        float prediction = 0.0f;
-        for (Integer neighbor : neighbors.keySet()) {
 
+        HashMap<Integer, Integer> neighborRatingData = new HashMap<Integer, Integer>();
+        // Top part of prediction formula
+        float top = 0.0f;
+        // Bottom part of prediction formula
+        float bot = 0.0f;
+        // Prediction value
+        float prediction = 0.0f;
+
+        // Iterating through neighbors
+        for (Integer neighbor : neighbors.keySet()) {
+            // Fetching neighbors data from data set.
             for (int i = 0; i < userRatingData.size(); i++) {
+                // If user id matches neighbor, put data into hash map
                 if (userRatingData.get(i)[0] == neighbor) {
-                    user2RatingData.put(userRatingData.get(i)[1], userRatingData.get(i)[2]);
+                    neighborRatingData.put(userRatingData.get(i)[1], userRatingData.get(i)[2]);
                 }
             }
-
-            if (user2RatingData.containsKey(movieId)) {
+            // Check if neighbor has rated the movie
+            if (neighborRatingData.containsKey(movieId)) {
                 // Get similarity of neighbor
                 float similarity = neighbors.get(neighbor);
-                // User 2 rating of movie
-                Integer rating = user2RatingData.get(movieId);
+                // Neighbor's rating of the movie
+                Integer rating = neighborRatingData.get(movieId);
                 top += similarity * rating;
                 bot += similarity;
             }
         }
         // Making sure top and bottom part of formula are neither zero.
         if (top != 0 && bot != 0) {
+            // Dividing top and bottom parts of formula to get the final prediction for the
+            // given movie.
             prediction = top / bot;
         }
         return prediction;

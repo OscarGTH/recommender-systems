@@ -116,24 +116,24 @@ public class Recommender {
             HashMap<Integer, Float> neighbors = new HashMap<Integer, Float>();
             // Iterating through sorted tree map
             for (int i = 0; i < sorted.size(); i++) {
-                // Get user if their similarity is more than 0.50.
-                if ((Float) sorted.keySet().toArray()[i] > 0.50) {
+                // Get user if their similarity is more than 0.90.
+                if ((Float) sorted.keySet().toArray()[i] > 0.90) {
                     // Getting value by index.
                     Float myKey = (Float) sorted.keySet().toArray()[i];
                     // Putting neighbor's values into hash map (User id : similarity)
                     neighbors.put(sorted.get(myKey), myKey);
                 }
             }
+
             HashMap<Float, Integer> predictions = new HashMap<Float, Integer>();
             // Iterating through every movie
             for (int i = 0; i < 1682; i++) {
                 // Checking that user hasn't rated the movie already
                 if (!user1RatingData.containsKey(i)) {
-                    System.out.println(i);
                     float prediction = 0.0f;
                     // Predicting rating for the movie
                     prediction = predictRating(user1RatingData, neighbors, userRatingData, i);
-                    // predictions.put(prediction, i);
+                    predictions.put(prediction, i);
                 }
             }
             // Sorting predictio values from low to high.

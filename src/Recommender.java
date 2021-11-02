@@ -66,6 +66,8 @@ public class Recommender {
         }
     }
 
+    // Finds 10 similar users and recommends 20 movies that the user would rate
+    // highly.
     public static void findSimilarAndPredict(int userId, String dataSource) {
         try {
             BufferedReader reader = new BufferedReader(new FileReader(dataSource));
@@ -193,6 +195,7 @@ public class Recommender {
         }
     }
 
+    // Gets k closest neighbors from TreeMap and returns them in a hash map.
     public static HashMap<Integer, Float> getClosestNeighbors(Integer k, TreeMap<Float, Integer> sorted) {
         HashMap<Integer, Float> neighbors = new HashMap<Integer, Float>();
         for (int i = 0; i < sorted.size(); i++) {
@@ -273,7 +276,16 @@ public class Recommender {
         }
     }
 
-    // Predicts user rating for a movie.
+    /**
+     * Predicts movie rating of a given movie for a given user.
+     * 
+     * 
+     * @param user1RatingData The rating data of the user 1.
+     * @param neighbors       Closest neighbors of user1 and their similarity value.
+     * @param neighborData    Contains rating data for each neighbor.
+     * @param movieId         Movie ID that the predicted rating is calculated for.
+     * @return Predicted rating for a movie.
+     */
     public static float predictRating(HashMap<Integer, Integer> user1RatingData, HashMap<Integer, Float> neighbors,
             HashMap<Integer, HashMap<Integer, Integer>> neighborData, Integer movieId) {
         // Used to contain the rating data of neighbor.

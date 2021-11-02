@@ -12,7 +12,18 @@ public class Recommender {
     public static void main(String[] args) throws Exception {
         getLineCount(dataSource);
         readMovieData(dataSource);
-        findSimilarAndPredict(150, dataSource);
+        //findSimilarAndPredict(150, dataSource);
+        ArrayList<Integer> cars = new ArrayList<Integer>();
+        cars.add(3);
+        cars.add(5);
+        cars.add(4);
+        cars.add(1);
+        ArrayList<Integer> bars = new ArrayList<Integer>();
+        bars.add(3);
+        bars.add(4);
+        bars.add(3);
+        bars.add(1);
+        cosineSimilarity(cars, bars);
     }
 
     // Prints line count of the dataset
@@ -286,4 +297,45 @@ public class Recommender {
     public static HashMap<Integer, Float> checkUser(HashMap<Integer, Float> neighbors) {
         return neighbors;
     }
+
+    /**
+     * Calculate cosine similarity between two items (movies).
+     * 
+     * 
+     * @param item1ratings List of ratings for item 1 (item which user has not rated).
+     * @param item2ratings List of ratings for item 2 (item which user has rated).
+     * @return Cosine similarity value between two items (movies).
+     */
+    public static float cosineSimilarity(ArrayList<Integer> item1ratings, ArrayList<Integer> item2ratings) {
+        float similarity = 0.0f;
+
+        //if similarity can't be computed return -2
+        if (item1ratings.size() == 0 || item2ratings.size() == 0 || 
+        item1ratings.size() != item2ratings.size()) {
+            return -2;
+        }
+
+        int crossSum = 0;
+        int squareSum1 = 0;
+        int squareSum2 = 0;
+
+        for (int i = 0; i < item1ratings.size(); i++) {
+            //cross sum of item 1 and 2 ratings
+            crossSum += item1ratings.get(i) * item2ratings.get(i);
+            //square sum of item 1 ratings
+            squareSum1 += item1ratings.get(i) * item1ratings.get(i);
+            //sqaure sum of item 2 ratings
+            squareSum2 += item2ratings.get(i) * item2ratings.get(i);
+        }
+
+        similarity = (float)crossSum / (float)(Math.sqrt(squareSum1) * Math.sqrt(squareSum2)); 
+
+        System.out.println("Cosine similarity:");
+        System.out.println(similarity);
+
+
+        return similarity;
+    }
 }
+
+//

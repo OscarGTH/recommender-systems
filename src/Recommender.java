@@ -8,21 +8,24 @@ import java.util.*;
 public class Recommender {
     final static String genreSource = "ml-100k/u.genre";
     final static String dataSource = "ml-100k/u.data";
+    final static String movieSource = "ml-100k/u.item";
     static User[] users;
+    static Movie[] movies;
 
     public static void main(String[] args) throws Exception {
-        //getLineCount(dataSource);
-        //readMovieData(dataSource);
-        //findSimilarAndPredict(156, dataSource);
-
-
+        // getLineCount(dataSource);
+        // readMovieData(dataSource);
+        // findSimilarAndPredict(156, dataSource);
+        initMovies(movieSource);
         initUsers(dataSource);
         printUsers(10);
-        
+        getRatingStatsForMovie(151);
+        System.out.println(Float.toString(calculateSimilarity(users[104], users[200])));
+
     }
 
     public static void initUsers(String dataSource) {
-        //User data is saved to index which matches to userId
+        // User data is saved to index which matches to userId
         users = new User[944];
         ArrayList<Integer> tempUserIds = new ArrayList<Integer>();
         try {
@@ -37,14 +40,16 @@ public class Recommender {
 
                 if (tempUserIds.contains(userId)) {
                     users[userId].setMovieAsRated(movieId);
-                    users[userId].setRating(movieId, rating); 
+                    users[userId].setRating(movieId, rating);
                 } else {
                     User user = new User(userId);
                     user.setRating(movieId, rating);
                     user.setMovieAsRated(movieId);
                     tempUserIds.add(userId);
                     users[userId] = user;
-                }  
+                }
+                // Setting the rating for the movie
+                movies[movieId].setRating(rating);
             }
 
             if (reader != null) {
@@ -55,13 +60,41 @@ public class Recommender {
         } catch (IOException ioExc) {
             System.out.println(ioExc);
         }
-        
-        
-        
+
     }
-    //prints data of n first users 
+
+    public static void initMovies(String movieSource) {
+        // Movie data is saved to index which matches to movie id
+        movies = new Movie[1683];
+        try {
+            BufferedReader reader = new BufferedReader(new FileReader(movieSource));
+            while (reader.ready()) {
+                String line = reader.readLine();
+                String[] lineData = line.split("\\|");
+                Integer movieId = Integer.valueOf(lineData[0]);
+                String name = lineData[1];
+
+                // Creating new movie object
+                Movie movie = new Movie(movieId);
+                movie.setName(name);
+                movies[movieId] = movie;
+
+            }
+            if (reader != null) {
+                reader.close();
+            }
+
+        } catch (FileNotFoundException fnfe) {
+            System.out.println(fnfe);
+        } catch (IOException ioExc) {
+            System.out.println(ioExc);
+        }
+
+    }
+
+    // prints data of n first users
     public static void printUsers(int n) {
-        
+
         for (int i = 1; i < n; i++) {
             System.out.print("User id: ");
             System.out.println(users[i].getUserId());
@@ -69,6 +102,15 @@ public class Recommender {
             System.out.println(users[i].getRatingData());
             System.out.println("Total ratings: " + users[i].getRatedMovies().size());
         }
+    }
+
+    public static void getRatingStatsForMovie(int movieId) {
+        Movie movie = movies[movieId];
+        System.out.println("\nRating statistics for movie: " + movie.getName());
+        System.out.println("The movie has " + Integer.toString(movie.getRatingCount()) + " ratings.");
+        System.out.println("Sum: " + Float.toString(movie.getRatingSum()));
+        System.out.println("Square Sum: " + Float.toString(movie.getRatingSquareSum()));
+        System.out.println("Mean: " + Float.toString(movie.getRatingMean()));
     }
 
     // Prints line count of the dataset
@@ -162,14 +204,14 @@ public class Recommender {
                     }
                 }
                 // Calculating similarity
-                float similarity = calculateSimilarity(user1RatingData, user2RatingData);
+                // float similarity = calculateSimilarity(user1RatingData, user2RatingData);
                 // Copying user 2 rating data into temp hash map
                 HashMap<Integer, Integer> tempNeighborData = new HashMap<>(user2RatingData);
-                if (!Float.isNaN(similarity)) {
-                    sims.put(similarity, unprocessedUsers.get(i));
-                    // Putting user id and the users data hash map into a separate hash map.
-                    neighborData.put(unprocessedUsers.get(i), tempNeighborData);
-                }
+                // if (!Float.isNaN(similarity)) {
+                // sims.put(similarity, unprocessedUsers.get(i));
+                // // Putting user id and the users data hash map into a separate hash map.
+                // neighborData.put(unprocessedUsers.get(i), tempNeighborData);
+                // }
 
                 user2RatingData.clear();
             }
@@ -261,48 +303,36 @@ public class Recommender {
      * Returns NaN if either of the arrays has zero variance (i.e., if one of the
      * arrays does not contain at least two distinct values)
      * 
-     * @param user1RatingData The rating data of the user 1.
-     * @param user2RatingData The rating data of the user 2.
+     * @param user1 User object 1
+     * @param user2 User object 2
      * @return Pearson's correlation coefficient for two arrays (users).
      */
-    public static float calculateSimilarity(HashMap<Integer, Integer> user1RatingData,
-            HashMap<Integer, Integer> user2RatingData) {
-
-        ArrayList<Integer> user1Ratings = new ArrayList<>();
-        ArrayList<Integer> user2Ratings = new ArrayList<>();
-
-        // Check which movies user 1 and user 2 have in common
-        for (Integer item : user1RatingData.keySet()) {
-            // If movie id can be found from user 2, then they have both rated the movie
-            if (user2RatingData.containsKey(item)) {
-                // Adding rating to users rating list
-                user1Ratings.add(user1RatingData.get(item));
-                user2Ratings.add(user2RatingData.get(item));
-            }
-        }
+    public static float calculateSimilarity(User user1, User user2) {
+        ArrayList<Integer> common = user1.getCommonMovies(user2);
         // common array length should be higher than two to compute correlation
         // coefficient
-        if (user1Ratings.size() > 2) {
+        if (common.size() > 2) {
             int sumUser1 = 0;
             int sumUser2 = 0;
             int crossSum = 0;
             int squareSum1 = 0;
             int squareSum2 = 0;
-            int n = user1Ratings.size();
-
+            int n = common.size();
             for (int i = 0; i < n; i++) {
                 // sum of user1 ratings
-                sumUser1 = sumUser1 + user1Ratings.get(i);
+                sumUser1 = sumUser1 + user1.getRatingForMovie(common.get(i));
 
                 // sum of user2 ratings
-                sumUser2 = sumUser2 + user2Ratings.get(i);
+                sumUser2 = sumUser2 + user2.getRatingForMovie(common.get(i));
 
                 // sum of both users' ratings
-                crossSum = crossSum + user1Ratings.get(i) * user2Ratings.get(i);
+                crossSum = crossSum + user1.getRatingForMovie(common.get(i)) * user2.getRatingForMovie(common.get(i));
 
                 // sum of square of array elements
-                squareSum1 = squareSum1 + user1Ratings.get(i) * user1Ratings.get(i);
-                squareSum2 = squareSum2 + user2Ratings.get(i) * user2Ratings.get(i);
+                squareSum1 = squareSum1
+                        + user1.getRatingForMovie(common.get(i)) * user1.getRatingForMovie(common.get(i));
+                squareSum2 = squareSum2
+                        + user2.getRatingForMovie(common.get(i)) * user2.getRatingForMovie(common.get(i));
             }
 
             // computing Pearson's correlation coefficient for user1 and user2

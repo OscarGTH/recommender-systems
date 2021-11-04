@@ -8,23 +8,67 @@ import java.util.*;
 public class Recommender {
     final static String genreSource = "ml-100k/u.genre";
     final static String dataSource = "ml-100k/u.data";
+    static User[] users;
 
     public static void main(String[] args) throws Exception {
-        getLineCount(dataSource);
-        readMovieData(dataSource);
-        findSimilarAndPredict(156, dataSource);
+        //getLineCount(dataSource);
+        //readMovieData(dataSource);
+        //findSimilarAndPredict(156, dataSource);
 
-        ArrayList<Integer> cars = new ArrayList<Integer>();
-        cars.add(3);
-        cars.add(5);
-        cars.add(4);
-        cars.add(1);
-        ArrayList<Integer> bars = new ArrayList<Integer>();
-        bars.add(3);
-        bars.add(4);
-        bars.add(3);
-        bars.add(1);
-        cosineSimilarity(cars, bars);
+
+        initUsers(dataSource);
+        printUsers(10);
+        
+    }
+
+    public static void initUsers(String dataSource) {
+        //User data is saved to index which matches to userId
+        users = new User[944];
+        ArrayList<Integer> tempUserIds = new ArrayList<Integer>();
+        try {
+            BufferedReader reader = new BufferedReader(new FileReader(dataSource));
+
+            while (reader.ready()) {
+                String line = reader.readLine();
+                String[] lineData = line.split("\\s+");
+                Integer userId = Integer.valueOf(lineData[0]);
+                Integer movieId = Integer.valueOf(lineData[1]);
+                Integer rating = Integer.valueOf(lineData[2]);
+
+                if (tempUserIds.contains(userId)) {
+                    users[userId].setMovieAsRated(movieId);
+                    users[userId].setRating(movieId, rating); 
+                } else {
+                    User user = new User(userId);
+                    user.setRating(movieId, rating);
+                    user.setMovieAsRated(movieId);
+                    tempUserIds.add(userId);
+                    users[userId] = user;
+                }  
+            }
+
+            if (reader != null) {
+                reader.close();
+            }
+        } catch (FileNotFoundException fnfe) {
+            System.out.println(fnfe);
+        } catch (IOException ioExc) {
+            System.out.println(ioExc);
+        }
+        
+        
+        
+    }
+    //prints data of n first users 
+    public static void printUsers(int n) {
+        
+        for (int i = 1; i < n; i++) {
+            System.out.print("User id: ");
+            System.out.println(users[i].getUserId());
+            System.out.print("Ratings : ");
+            System.out.println(users[i].getRatingData());
+            System.out.println("Total ratings: " + users[i].getRatedMovies().size());
+        }
     }
 
     // Prints line count of the dataset

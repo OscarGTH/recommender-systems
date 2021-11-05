@@ -19,13 +19,11 @@ public class Recommender {
     public static void main(String[] args) throws Exception {
         // getLineCount(dataSource);
         // readMovieData(dataSource);
-        // findSimilarAndPredict(156, dataSource);
         helper = new Helper();
         System.out.println("Initializing movies...");
         initMovies(movieSource);
         System.out.println("Initializing users...");
         initUsers(dataSource);
-        // printUsers(10);
         System.out.println("Initializing similarities...");
         initSimilarities();
         ArrayList<User> userGroup = new ArrayList<>();

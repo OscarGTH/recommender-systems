@@ -3,7 +3,9 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 // Importing utility classes
+import java.util.HashMap;
 import java.util.*;
+import java.text.DecimalFormat;
 
 public class Recommender {
     final static String genreSource = "ml-100k/u.genre";
@@ -11,17 +13,43 @@ public class Recommender {
     final static String movieSource = "ml-100k/u.item";
     static User[] users;
     static Movie[] movies;
+    static Helper helper;
+    private static final DecimalFormat df = new DecimalFormat("0.0");
 
     public static void main(String[] args) throws Exception {
         // getLineCount(dataSource);
         // readMovieData(dataSource);
         // findSimilarAndPredict(156, dataSource);
+        helper = new Helper();
+        System.out.println("Initializing movies...");
         initMovies(movieSource);
+        System.out.println("Initializing users...");
         initUsers(dataSource);
-        printUsers(10);
-        getRatingStatsForMovie(151);
-        System.out.println(Float.toString(calculateSimilarity(users[104], users[200])));
+        // printUsers(10);
+        System.out.println("Initializing similarities...");
+        initSimilarities();
+        ArrayList<User> userGroup = new ArrayList<>();
+        userGroup.add(users[100]);
+        userGroup.add(users[101]);
+        userGroup.add(users[102]);
+        System.out.println("Calculating recommendations for a group of users...\n");
+        recommendGroup(userGroup);
 
+    }
+
+    public static void initSimilarities() {
+        int i;
+        int x;
+        // Iterate through each user
+        for (i = 1; i < users.length; i++) {
+            // Process similarities for each user
+            for (x = 1; x < users.length; x++) {
+                // Make sure indexes are not same.
+                if (i != x) {
+                    calculateSimilarity(users[i], users[x]);
+                }
+            }
+        }
     }
 
     public static void initUsers(String dataSource) {
@@ -152,151 +180,6 @@ public class Recommender {
         }
     }
 
-    // Finds 10 similar users and recommends 20 movies that the user would rate
-    // highly.
-    public static void findSimilarAndPredict(int userId, String dataSource) {
-        try {
-            BufferedReader reader = new BufferedReader(new FileReader(dataSource));
-            // Key is item id, value is rating for the item.
-            HashMap<Integer, Integer> user1RatingData = new HashMap<Integer, Integer>();
-            HashMap<Integer, Integer> user2RatingData = new HashMap<Integer, Integer>();
-
-            List<int[]> userRatingData = new ArrayList<int[]>();
-
-            // List of user ids whose similarities have not been computed.
-            Set<Integer> unprocessedUsersSet = new HashSet<Integer>();
-
-            // Loop through whole dataset and gather item ids and ratings for user 1
-            while (reader.ready()) {
-                String line = reader.readLine();
-                String[] ratingData = line.split("\\s+");
-                if (line.startsWith(Integer.toString(userId))) {
-                    user1RatingData.put(Integer.parseInt(ratingData[1]), Integer.parseInt(ratingData[2]));
-                } else {
-                    int userData[] = new int[3];
-                    // User id
-                    userData[0] = Integer.parseInt(ratingData[0]);
-                    // Item id
-                    userData[1] = Integer.parseInt(ratingData[1]);
-                    // Rating
-                    userData[2] = Integer.parseInt(ratingData[2]);
-                    // Adding user data to userRatingData ArrayList.
-                    userRatingData.add(userData);
-
-                    // Adding unique user ids to set.
-                    unprocessedUsersSet.add(Integer.parseInt(ratingData[0]));
-                }
-            }
-            // Close reader if it is not null
-            if (reader != null) {
-                reader.close();
-            }
-            HashMap<Float, Integer> sims = new HashMap<Float, Integer>();
-            // Contains neighbor user id and it's rating data in hash map
-            HashMap<Integer, HashMap<Integer, Integer>> neighborData = new HashMap<>();
-
-            List<Integer> unprocessedUsers = new ArrayList<>(unprocessedUsersSet);
-            // Iterating over unprocessed users.
-            for (int i = 0; i < unprocessedUsers.size(); i++) {
-                for (int x = 0; x < userRatingData.size(); x++) {
-                    if (userRatingData.get(x)[0] == unprocessedUsers.get(i)) {
-                        user2RatingData.put(userRatingData.get(x)[1], userRatingData.get(x)[2]);
-                    }
-                }
-                // Calculating similarity
-                // float similarity = calculateSimilarity(user1RatingData, user2RatingData);
-                // Copying user 2 rating data into temp hash map
-                HashMap<Integer, Integer> tempNeighborData = new HashMap<>(user2RatingData);
-                // if (!Float.isNaN(similarity)) {
-                // sims.put(similarity, unprocessedUsers.get(i));
-                // // Putting user id and the users data hash map into a separate hash map.
-                // neighborData.put(unprocessedUsers.get(i), tempNeighborData);
-                // }
-
-                user2RatingData.clear();
-            }
-            // Sorting similarity values from low to high.
-            // (Similarity : User Id)
-            TreeMap<Float, Integer> sorted = new TreeMap<>(sims);
-            // Most similar neighbors
-            HashMap<Integer, Float> neighbors = new HashMap<Integer, Float>();
-            // Iterating through sorted tree map
-            for (int i = 0; i < sorted.size(); i++) {
-                // Get user if their similarity is more than 0.90.
-                if ((Float) sorted.keySet().toArray()[i] > 0.70) {
-                    // Getting value by index.
-                    Float myKey = (Float) sorted.keySet().toArray()[i];
-                    // Putting neighbor's values into hash map (User id : similarity)
-                    neighbors.put(sorted.get(myKey), myKey);
-                }
-            }
-
-            // Filtering neighboring data based on keys from neighbors.
-            // This reduces the size of our needed data.
-            Set<Integer> set = new HashSet<Integer>(neighbors.keySet());
-            neighborData.keySet().retainAll(set);
-
-            HashMap<Float, Integer> predictions = new HashMap<Float, Integer>();
-            // Iterating through every movie
-            for (int i = 0; i < 1682; i++) {
-                // Checking that user hasn't rated the movie already
-                if (!user1RatingData.containsKey(i)) {
-                    float prediction = 0.0f;
-                    // Predicting rating for the movie
-                    prediction = predictRating(user1RatingData, neighbors, neighborData, i);
-                    predictions.put(prediction, i);
-                }
-            }
-
-            // Sorting prediction values from low to high.
-            // (Similarity : User Id)
-            TreeMap<Float, Integer> sorted_predictions = new TreeMap<>(predictions);
-
-            // Getting 20 movie recommendations.
-            // (Movie Id : predicted rating )
-            HashMap<Integer, Float> recommendations = getClosestNeighbors(20, sorted_predictions);
-            // Getting 10 most similar users.
-            // (User Id : similarity)
-            HashMap<Integer, Float> k_closest_neighbors = getClosestNeighbors(10, sorted);
-
-            System.out.println("\n***************");
-            System.out.println("Top 10 similar users:\n");
-            for (Integer neighbor : k_closest_neighbors.keySet()) {
-                System.out.println("--------------");
-                System.out.println("User ID " + Integer.toString(neighbor) + " Similarity: "
-                        + Float.toString(k_closest_neighbors.get(neighbor)));
-            }
-            System.out.println("\n***************");
-            System.out.println("Top 20 recommended movies:\n");
-            for (Integer recommendation : recommendations.keySet()) {
-                System.out.println("--------------");
-                System.out.println("Movie ID " + Integer.toString(recommendation) + " Prediction of rating: "
-                        + Float.toString(recommendations.get(recommendation)));
-            }
-
-        } catch (FileNotFoundException fnfe) {
-            System.out.println(fnfe);
-        } catch (IOException ioExc) {
-            System.out.println(ioExc);
-        }
-    }
-
-    // Gets k closest neighbors from TreeMap and returns them in a hash map.
-    public static HashMap<Integer, Float> getClosestNeighbors(Integer k, TreeMap<Float, Integer> sorted) {
-        HashMap<Integer, Float> neighbors = new HashMap<Integer, Float>();
-        for (int i = 0; i < sorted.size(); i++) {
-            // Go through, if index is the less or equal than the last n elements in tree
-            // map.
-            if (i >= (sorted.size() - k)) {
-                // Getting value by index.
-                Float myKey = (Float) sorted.keySet().toArray()[i];
-                // Putting neighbor's values into hash map (User id : similarity)
-                neighbors.put(sorted.get(myKey), myKey);
-            }
-        }
-        return neighbors;
-    }
-
     /**
      * Calculate similarity between two users.
      * 
@@ -343,7 +226,8 @@ public class Recommender {
                     * (float) Math.sqrt(n * squareSum2 - Math.pow(sumUser2, 2));
             // Dividing top part with bottom part
             float similarity = top / bot;
-
+            // Saving similarity data to user 1.
+            user1.setSimilarity(user2.getUserId(), similarity);
             return similarity;
         } else {
             return 0;
@@ -353,17 +237,13 @@ public class Recommender {
     /**
      * Predicts movie rating of a given movie for a given user.
      * 
-     * 
-     * @param user1RatingData The rating data of the user 1.
-     * @param neighbors       Closest neighbors of user1 and their similarity value.
-     * @param neighborData    Contains rating data for each neighbor.
-     * @param movieId         Movie ID that the predicted rating is calculated for.
+     * @param user1   User object
+     * @param movieId Movie ID that the predicted rating is calculated for.
      * @return Predicted rating for a movie.
      */
-    public static float predictRating(HashMap<Integer, Integer> user1RatingData, HashMap<Integer, Float> neighbors,
-            HashMap<Integer, HashMap<Integer, Integer>> neighborData, Integer movieId) {
-        // Used to contain the rating data of neighbor.
-        HashMap<Integer, Integer> neighborRatingData = new HashMap<Integer, Integer>();
+    public static float predictRating(User user1, Integer movieId) {
+
+        ArrayList<Integer> neighbors = user1.getKSimilarUsers(200);
         // Top part of prediction formula
         float top = 0.0f;
         // Bottom part of prediction formula
@@ -372,24 +252,21 @@ public class Recommender {
         float prediction = 0.0f;
 
         // Iterating through neighbors
-        for (Integer neighbor : neighbors.keySet()) {
-            // Fetching rating data for the specific neighbor
-            neighborRatingData = neighborData.get(neighbor);
+        for (Integer neighbor : neighbors) {
+            User neighborObject = users[neighbor];
             // Check if neighbor has rated the movie
-            if (neighborRatingData.containsKey(movieId)) {
+            if (neighborObject.hasRatedMovie(movieId)) {
                 // Get similarity of neighbor
-                float similarity = neighbors.get(neighbor);
+                float similarity = user1.getSimilarity(neighbor);
                 // Neighbor's rating of the movie
-                Integer rating = neighborRatingData.get(movieId);
+                Integer rating = neighborObject.getRatingForMovie(movieId);
                 top += similarity * rating;
                 bot += similarity;
             }
         }
-        // Making sure top and bottom part of formula are neither zero.
         if (top != 0 && bot != 0) {
-            // Dividing top and bottom parts of formula to get the final prediction for the
-            // given movie.
             prediction = top / bot;
+            user1.setPrediction(movieId, prediction);
         }
         return prediction;
     }
@@ -431,4 +308,57 @@ public class Recommender {
 
         return similarity;
     }
+
+    public static void recommendGroup(ArrayList<User> userGroup) {
+        // Iterating through every user of group
+        for (User user : userGroup) {
+            for (Integer movieId : user.getUnseenMovies()) {
+                predictRating(user, movieId);
+            }
+        }
+        // Calculate group recommendations by average aggregation.
+        averageAggregation(userGroup);
+    }
+
+    public static void averageAggregation(ArrayList<User> userGroup) {
+        // (Movie ID : Predicted rating for group)
+        HashMap<Integer, Float> groupRecommendations = new HashMap<>();
+        int i;
+        // Iterating over every movie
+        for (i = 1; i < movies.length; i++) {
+            // Creating movie object
+            Movie movie = movies[i];
+            boolean validMovie = true;
+            // Getting movie id
+            Integer movieId = movie.getMovieId();
+            Float sum = 0.0f;
+            // Iterating through every user of the group
+            for (User user : userGroup) {
+                Float rating = user.getPredictionForMovie(movieId);
+                Integer realRating = user.getRatingForMovie(movieId);
+                // Checking if user hasn't rated or doesn't have prediction for the movie
+                if (rating == null && realRating == null) {
+                    validMovie = false;
+                } else if (rating == null) {
+                    sum += realRating;
+                } else {
+                    sum += rating;
+                }
+            }
+            // If ratings for the movie were found from every user of the group, continue.
+            if (validMovie) {
+                Float prediction = sum / userGroup.size();
+                // Adding prediction for the movie.
+                groupRecommendations.put(movieId, prediction);
+            }
+        }
+        // Getting top 20 recommended movies
+        ArrayList<Integer> movieRecommendations = helper.getKSlice(20, groupRecommendations);
+        // Printing every movie with their name and predicted rating.
+        for (Integer movieId : movieRecommendations) {
+            System.out.println(movies[movieId].getName() + "  > Predicted rating: "
+                    + df.format(groupRecommendations.get(movieId)));
+        }
+    }
+
 }

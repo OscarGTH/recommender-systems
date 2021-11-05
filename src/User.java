@@ -1,5 +1,7 @@
-import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.*;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.LinkedList;
 
 public class User {
     private Integer id;
@@ -9,6 +11,9 @@ public class User {
     private ArrayList<Integer> unseenMovies;
     // <userId : similarityValue>
     private HashMap<Integer, Float> similarities;
+    // <movieId : predictedRating>
+    private HashMap<Integer, Float> predictions;
+    Helper helper = new Helper();
 
     public User(Integer userId) {
         this.id = userId;
@@ -16,6 +21,8 @@ public class User {
         this.ratedMovies = new ArrayList<Integer>();
         this.unseenMovies = new ArrayList<Integer>();
         this.similarities = new HashMap<Integer, Float>();
+        this.predictions = new HashMap<Integer, Float>();
+
     }
 
     public Integer getUserId() {
@@ -34,6 +41,10 @@ public class User {
         return ratingData.get(movieId);
     }
 
+    public Float getPredictionForMovie(Integer movieId) {
+        return predictions.get(movieId);
+    }
+
     public void setMovieAsRated(Integer moviedId) {
         ratedMovies.add(moviedId);
     }
@@ -46,14 +57,40 @@ public class User {
         return ratedMovies;
     }
 
-    // empty list atm
     public ArrayList<Integer> getUnseenMovies() {
+        for (int i = 0; i < 1682; i++) {
+            unseenMovies.add(i);
+        }
+        unseenMovies.removeAll(ratedMovies);
         return unseenMovies;
     }
 
-    // empty list atm
+    public void setSimilarity(Integer userId, Float similarity) {
+        if (!similarity.isNaN()) {
+            similarities.put(userId, similarity);
+        }
+    }
+
     public Float getSimilarity(Integer userId) {
         return similarities.get(userId);
+    }
+
+    public Integer getSimilaritiesLength() {
+        return similarities.size();
+    }
+
+    public ArrayList<Integer> getKSimilarUsers(int k) {
+        return helper.getKSlice(k, similarities);
+    }
+
+    public void setPrediction(Integer movieId, Float prediction) {
+        if (!prediction.isNaN()) {
+            predictions.put(movieId, prediction);
+        }
+    }
+
+    public ArrayList<Integer> getKRecommendedMovies(int k) {
+        return helper.getKSlice(k, predictions);
     }
 
     // Returns list of common movies between two users.
@@ -70,5 +107,4 @@ public class User {
         }
         return commonMovies;
     }
-
 }

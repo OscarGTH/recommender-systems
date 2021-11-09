@@ -26,13 +26,14 @@ public class Recommender {
         initUsers(dataSource);
         System.out.println("Initializing similarities...");
         initSimilarities();
+        
         ArrayList<User> userGroup = new ArrayList<>();
-        userGroup.add(users[100]);
-        userGroup.add(users[101]);
-        userGroup.add(users[102]);
+        userGroup.add(users[50]);
+        userGroup.add(users[150]);
+        userGroup.add(users[250]);
         System.out.println("Calculating recommendations for a group of users...\n");
         recommendGroup(userGroup);
-
+        
     }
 
     public static void initSimilarities() {
@@ -44,7 +45,7 @@ public class Recommender {
             for (x = 1; x < users.length; x++) {
                 // Make sure indexes are not same.
                 if (i != x) {
-                    calculateSimilarity(users[i], users[x]);
+                    calculateSimilarity2(users[i], users[x]);
                 }
             }
         }
@@ -311,11 +312,15 @@ public class Recommender {
         // Iterating through every user of group
         for (User user : userGroup) {
             for (Integer movieId : user.getUnseenMovies()) {
-                predictRating(user, movieId);
+                predictRating2(user, movieId);
             }
         }
         // Calculate group recommendations by average aggregation.
+        System.out.println("Average approach:\n");
         averageAggregation(userGroup);
+        System.out.println("-------------------------");
+        System.out.println("Least misery approach:\n");
+        leastMiseryAggregation(userGroup);
     }
 
     public static void averageAggregation(ArrayList<User> userGroup) {
@@ -357,6 +362,152 @@ public class Recommender {
             System.out.println(movies[movieId].getName() + "  > Predicted rating: "
                     + df.format(groupRecommendations.get(movieId)));
         }
+    }
+
+    public static void leastMiseryAggregation(ArrayList<User> userGroup) {
+        // (Movie ID : Predicted rating for group)
+        HashMap<Integer, Float> groupRecommendations = new HashMap<>();
+        int i;
+        // Iterating over every movie
+        for (i = 1; i < movies.length; i++) {
+            // Creating movie object
+            Movie movie = movies[i];
+            boolean validMovie = true;
+            // Getting movie id
+            Integer movieId = movie.getMovieId();
+            Float smallest = null;
+
+            // Iterating through every user of the group
+            for (User user : userGroup) {
+                Float predictedRating = user.getPredictionForMovie(movieId);
+                
+
+                Integer realRating = user.getRatingForMovie(movieId);
+                
+
+                
+                // Checking if user hasn't rated or doesn't have prediction for the movie
+                if (predictedRating == null && realRating == null) {
+                    validMovie = false;
+                // Checking for user's real rating and whether it's the lowest of the group     
+                } else if (predictedRating == null ) {
+                    if (smallest == null || (float)realRating < smallest)
+                    smallest = (float)realRating;
+                // Checking for user's predicted rating and whether it's the lowest of the group  
+                } else if (smallest == null || predictedRating < smallest) {
+                    smallest = predictedRating;
+                }
+            }  
+              // If ratings for the movie were found from every user of the group, continue.
+            if (validMovie) {
+                //System.out.println("valid movie smallest: " + smallest);
+                //if (smallest > 4) {
+                    //for (User user : userGroup) {
+                        //System.out.println(movieId + "movieid");
+                        //System.out.println(user.getPredictionForMovie(movieId));
+                        //System.out.println(user.getRatingForMovie(movieId));
+    
+                    //}
+                //}
+                
+
+                Float prediction = smallest;
+                // Adding prediction for the movie.
+                groupRecommendations.put(movieId, prediction);
+            }
+        }
+        // Getting top 20 recommended movies
+        ArrayList<Integer> movieRecommendations = helper.getKSlice(20, groupRecommendations);
+        // Printing every movie with their name and predicted rating.
+        for (Integer movieId : movieRecommendations) {
+            System.out.println(movies[movieId].getName() + "  > Predicted rating: "
+                    + df.format(groupRecommendations.get(movieId)));
+        }
+    }
+
+    public static float calculateSimilarity2(User user1, User user2) {
+        ArrayList<Integer> common = user1.getCommonMovies(user2);
+
+        // common array length should be higher than two to compute correlation coefficient
+        if (common.size() > 2) {
+            //computing mean of ratings for user1 and user2
+            int sumUser1 = 0;
+            int sumUser2 = 0;
+            float meanUser1 = 0.0f;
+            float meanUser2 = 0.0f;
+
+            for (int i = 0; i < common.size(); i++) {
+                sumUser1 += user1.getRatingForMovie(common.get(i));
+                sumUser2 += user2.getRatingForMovie(common.get(i)); 
+            }    
+            //computed means
+            meanUser1 = sumUser1 / common.size();
+            meanUser2 = sumUser2 / common.size();
+
+            // top part of similarity formula
+            float sumTop = 0.0f;
+            // first part of bottom
+            float sumBottom1 = 0.0f;
+            //second part of bottom
+            float sumBottom2 = 0.0f;
+            // bottom part of formula
+            float bottom = 0.0f;
+
+            //iterating through movies rated by both and computing sums for formula
+            for (int i = 0; i < common.size(); i++) {
+                // (user1 rating - user1 average) - (user2 rating - user2 average) 
+                sumTop += (user1.getRatingForMovie(common.get(i)) - meanUser1) * (user2.getRatingForMovie(common.get(i)) - meanUser2);
+                // square of (user1 rating - user1 average)
+                sumBottom1 += Math.pow(user1.getRatingForMovie(common.get(i)) - meanUser1, 2); 
+                // square of (user2 rating - user2 average)
+                sumBottom2 += Math.pow(user2.getRatingForMovie(common.get(i)) - meanUser2, 2); 
+            } 
+
+            bottom = (float)Math.sqrt(sumBottom1) * (float)Math.sqrt(sumBottom2);
+
+            float similarity = sumTop / bottom;
+            user1.setSimilarity(user2.getUserId(), similarity);
+            return similarity;
+        } else {
+            return 0;
+        }    
+    }
+
+    public static float predictRating2(User user1, Integer movieId) {
+
+        ArrayList<Integer> neighbors = user1.getKSimilarUsers(50);
+
+        float meanUser1 = user1.getAverageRating();
+        //top part of prediction formula
+        float sumTop = 0.0f;
+        //bottom part of prediction formula
+        float sumBottom = 0.0f;
+        // Prediction value
+        float prediction = 0.0f;
+
+        // Iterating through neighbors
+        for (Integer neighbor : neighbors) {
+            User neighborObject = users[neighbor];
+            // Check if neighbor has rated the movie
+            if (neighborObject.hasRatedMovie(movieId)) {
+                // Get similarity of neighbor
+                float similarity = user1.getSimilarity(neighbor);
+                 // Neighbor's rating of the movie
+                Integer rating = neighborObject.getRatingForMovie(movieId);
+                // Neighbor's average rating
+                float meanNeighbor = neighborObject.getAverageRating();
+
+                sumTop += similarity * (rating - meanNeighbor);
+                sumBottom += similarity;
+            }
+        }    
+
+        if (sumTop != 0 && sumBottom != 0) {
+            prediction = meanUser1 + (sumTop / sumBottom);
+            user1.setPrediction(movieId, prediction);
+        }
+        //if none of the neighbors has rated the movie function returns 0
+        return prediction;
     }
 
 }

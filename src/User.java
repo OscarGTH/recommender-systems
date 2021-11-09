@@ -107,4 +107,18 @@ public class User {
         }
         return commonMovies;
     }
+
+    public float getAverageRating() {
+        int sum = 0;
+        if (ratedMovies.size() > 0) {
+            for (Integer movieId : ratedMovies) {
+                sum += this.getRatingForMovie(movieId);
+            }
+            float mean = sum / ratedMovies.size();
+            return mean;
+        } else {
+            return 0.0f;
+        }
+        
+    }
 }

@@ -39,4 +39,16 @@ public class Helper {
         }
         return sortedMap;
     }
+
+    public boolean checkMovieValidity(User user, Integer movieId) {
+        Float predictedRating = user.getPredictionForMovie(movieId);
+        boolean validMovie = true;
+        Integer realRating = user.getRatingForMovie(movieId);
+
+        // Checking if user hasn't rated or doesn't have prediction for the movie
+        if (predictedRating == 0.0f && realRating == 0) {
+            validMovie = false;
+        }
+        return validMovie;
+    }
 }

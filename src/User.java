@@ -38,11 +38,21 @@ public class User {
     }
 
     public Integer getRatingForMovie(Integer movieId) {
-        return ratingData.get(movieId);
+        Integer rating = ratingData.get(movieId);
+        if (rating != null) {
+            return rating;
+        } else {
+            return 0;
+        }
     }
 
     public Float getPredictionForMovie(Integer movieId) {
-        return predictions.get(movieId);
+        Float rating = predictions.get(movieId);
+        if (rating != null) {
+            return rating;
+        } else {
+            return 0.0f;
+        }
     }
 
     public void setMovieAsRated(Integer moviedId) {
@@ -119,6 +129,6 @@ public class User {
         } else {
             return 0.0f;
         }
-        
+
     }
 }

@@ -25,12 +25,14 @@ public class Recommender {
         System.out.println("Initializing similarities...");
         initSimilarities();
         helper = new Helper();
+
         ArrayList<User> userGroup = new ArrayList<>();
         userGroup.add(users[586]);
         userGroup.add(users[160]);
         userGroup.add(users[256]);
+        Group group = new Group(userGroup);
         System.out.println("Calculating recommendations for a group of users...\n");
-        recommendGroup(userGroup);
+        recommendGroup(group);
 
     }
 
@@ -43,7 +45,7 @@ public class Recommender {
             for (x = 1; x < users.length; x++) {
                 // Make sure indexes are not same.
                 if (i != x) {
-                    calculateSimilarity2(users[i], users[x]);
+                    calculateSimilarity(users[i], users[x]);
                 }
             }
         }
@@ -252,25 +254,25 @@ public class Recommender {
         return similarity;
     }
 
-    public static void recommendGroup(ArrayList<User> userGroup) {
+    public static void recommendGroup(Group group) {
+        ArrayList<User> users = group.getUsers();
         // Iterating through every user of group
-        for (User user : userGroup) {
+        for (User user : users) {
             for (Integer movieId : user.getUnseenMovies()) {
                 predictRating(user, movieId);
             }
         }
         // Calculate group recommendations by average aggregation.
-        System.out.println("Average approach:\n");
-        averageAggregation(userGroup);
+        // System.out.println("Average approach Top 20:\n");
+        // averageAggregation(users);
+        // System.out.println("-------------------------");
+        // System.out.println("Least misery approach Top 20:\n");
+        // leastMiseryAggregation(users);
+        // System.out.println("-------------------------");
+        // System.out.println("Treshold Disagreement approach Top 20:\n");
+        // thresholdDisagreementAggregation(users, 1.5f);
         System.out.println("-------------------------");
-        System.out.println("Least misery approach:\n");
-        leastMiseryAggregation(userGroup);
-        System.out.println("-------------------------");
-        System.out.println("OsHe approach:\n");
-        thresholdDisagreementAggregation(userGroup, 1.5f);
-        System.out.println("-------------------------");
-        System.out.println("OsHe 2 approach:\n");
-        thresholdDisagreementAggregation2(userGroup, 1.5f);
+        sequentialRecommendation(group);
     }
 
     public static void averageAggregation(ArrayList<User> userGroup) {
@@ -306,7 +308,7 @@ public class Recommender {
             }
         }
         // Getting top 20 recommended movies
-        ArrayList<Integer> movieRecommendations = helper.getKSlice(50, groupRecommendations);
+        ArrayList<Integer> movieRecommendations = helper.getKSlice(20, groupRecommendations);
         // Printing every movie with their name and predicted rating.
         for (Integer movieId : movieRecommendations) {
             System.out.println(movies[movieId].getName() + "  > Predicted rating: "
@@ -363,6 +365,16 @@ public class Recommender {
         }
     }
 
+    /**
+     * Perform threshold disagreement aggregation for group movie ratings.
+     * 
+     * 
+     * @param userGroup List of user objects.
+     * 
+     * @param threshold Floating point value to adjust the algorithm.
+     * 
+     * @return void.
+     */
     public static void thresholdDisagreementAggregation(ArrayList<User> userGroup, Float threshold) {
 
         // (Movie ID : Predicted rating for group)
@@ -372,79 +384,20 @@ public class Recommender {
         for (i = 1; i < movies.length; i++) {
             // Creating movie object
             Movie movie = movies[i];
+            // Flag to mark a valid movie (Every user has a rating or prediction for it)
             boolean validMovie = true;
-            boolean disagreement = false;
-            // Getting movie id
-            Integer movieId = movie.getMovieId();
-            Float currentPrediction = 0.0f;
-            Float sum = 0.0f;
-
-            // Iterating through every user of the group
-            for (User user : userGroup) {
-                Float predictedRating = user.getPredictionForMovie(movieId);
-                Float realRating = user.getRatingForMovie(movieId).floatValue();
-                // Checking that movie has been rated by or been predicted for user.
-                validMovie = helper.checkMovieValidity(user, movieId);
-                if (validMovie) {
-                    // Setting ratings as real rating or predicted depending on which exists.
-                    Float currentRating = realRating != 0 ? realRating : predictedRating;
-                    if (currentPrediction > 0.0f) {
-                        // Performing disagreement check
-                        if (Math.abs(currentRating - currentPrediction) >= threshold) {
-                            currentPrediction = (currentRating + currentPrediction) / 2;
-                            // Marking that there was a disagreement between members.
-                            disagreement = true;
-                        } else {
-                            // Increasing sum in case there wasn't a disagreement.
-                            sum += currentRating;
-                        }
-                    } else {
-                        // Encountered first rating
-                        currentPrediction = currentRating;
-                        // Increasing sum in case average has to be used as predictor.
-                        sum += currentRating;
-                    }
-                }
-            }
-
-            // If ratings for the movie were found from every user of the group, continue.
-            if (validMovie) {
-                // Using current prediction as predictor if disagreements were found,
-                // otherwise use average aggregation as predictor.
-                Float prediction = disagreement ? currentPrediction : (sum / userGroup.size());
-                // Adding prediction for the movie.
-                groupRecommendations.put(movieId, prediction);
-            }
-        }
-
-        // Getting top 25 recommended movies
-        ArrayList<Integer> movieRecommendations = helper.getKSlice(25, groupRecommendations);
-        // Printing every movie with their name and predicted rating.
-        for (Integer movieId : movieRecommendations) {
-            System.out.println(movies[movieId].getName() + "  > Predicted rating: "
-                    + df.format(groupRecommendations.get(movieId)));
-        }
-    }
-
-    public static void thresholdDisagreementAggregation2(ArrayList<User> userGroup, Float threshold) {
-
-        // (Movie ID : Predicted rating for group)
-        HashMap<Integer, Float> groupRecommendations = new HashMap<>();
-        int i;
-        // Iterating over every movie
-        for (i = 1; i < movies.length; i++) {
-            // Creating movie object
-            Movie movie = movies[i];
-            boolean validMovie = true;
+            // Counter for disagreements.
             Integer disagreements = 0;
             // Getting movie id
             Integer movieId = movie.getMovieId();
+            // List of collected ratings from each user in the group.
             List<Float> collectedRatings = new ArrayList<>();
             Float sum = 0.0f;
             Float predictSum = 0.0f;
 
             // Iterating through every user of the group
             for (User user : userGroup) {
+                // Getting a rating for a movie from the user object.
                 Float predictedRating = user.getPredictionForMovie(movieId);
                 Float realRating = user.getRatingForMovie(movieId).floatValue();
                 // Checking that movie has been rated by or been predicted for user.
@@ -452,7 +405,7 @@ public class Recommender {
                 if (validMovie) {
                     // Setting ratings as real rating or predicted depending on which exists.
                     Float currentRating = realRating != 0 ? realRating : predictedRating;
-                    // Increasing sum in case there wasn't a disagreement.
+                    // Increasing sum.
                     sum += currentRating;
                     // Collecting rating score into a list.
                     collectedRatings.add(currentRating);
@@ -461,12 +414,13 @@ public class Recommender {
 
             // If ratings for the movie were found from every user of the group, continue.
             if (validMovie) {
+                // Hold unprocessed ratings.
                 Integer remainingRatings = collectedRatings.size();
-                // Looping while
+                // Looping while there are enough ratings.
                 while (remainingRatings > 1) {
-                    // Getting max rating
+                    // Getting max value of ratings
                     Float max = Collections.max(collectedRatings);
-                    // Getting min rating
+                    // Getting min value ratings
                     Float min = Collections.min(collectedRatings);
                     // If absolute value of max subtracted from min
                     // is over the treshold, we have a disagreement.
@@ -479,7 +433,7 @@ public class Recommender {
                     // Removing values that have been processed.
                     collectedRatings.remove(max);
                     collectedRatings.remove(min);
-                    // Remove 2 from remaining ratings, since 2 (min and max) values were processed.
+                    // Remove 2 from remaining ratings, since 2 values (min and max) were processed.
                     remainingRatings -= 2;
                 }
                 // Using average of disagreements as predictor if disagreements were found,
@@ -490,12 +444,120 @@ public class Recommender {
             }
         }
 
-        // Getting top 25 recommended movies
-        ArrayList<Integer> movieRecommendations = helper.getKSlice(25, groupRecommendations);
+        // Getting top 20 recommended movies
+        ArrayList<Integer> movieRecommendations = helper.getKSlice(20, groupRecommendations);
         // Printing every movie with their name and predicted rating.
         for (Integer movieId : movieRecommendations) {
             System.out.println(movies[movieId].getName() + "  > Predicted rating: "
                     + df.format(groupRecommendations.get(movieId)));
+        }
+    }
+
+    /**
+     * Perform threshold disagreement aggregation for group movie ratings and uses
+     * alpha.
+     * 
+     * 
+     * @param userGroup List of user objects.
+     * 
+     * @param threshold Floating point value to adjust the algorithm.
+     * 
+     * @return void.
+     */
+    public static HashMap<Integer, Float> threshDisAggWithAlpha(Group group, Float threshold, Float alpha) {
+
+        // (Movie ID : Predicted rating for group)
+        HashMap<Integer, Float> groupRecommendations = new HashMap<>();
+        int i;
+        ArrayList<Integer> recommendedMovies = group.getRecommendedMovies();
+        // Iterating over every movie
+        for (i = 1; i < movies.length; i++) {
+            // Creating movie object
+            Movie movie = movies[i];
+            // Flag to mark a valid movie (Every user has a rating or prediction for it)
+            boolean validMovie = true;
+            // Counter for disagreements.
+            Integer disagreements = 0;
+            // Getting movie id
+            Integer movieId = movie.getMovieId();
+            // List of collected ratings from each user in the group.
+            List<Float> collectedRatings = new ArrayList<>();
+            Float sum = 0.0f;
+            Float predictSum = 0.0f;
+            // Checking that the movie hasn't been processed already.
+            if (!recommendedMovies.contains(movieId)) {
+                // Iterating through every user of the group
+                for (User user : group.getUsers()) {
+                    // Getting a rating for a movie from the user object.
+                    Float predictedRating = user.getPredictionForMovie(movieId);
+                    Float realRating = user.getRatingForMovie(movieId).floatValue();
+                    // Checking that movie has been rated by or been predicted for user.
+                    validMovie = helper.checkMovieValidity(user, movieId);
+                    if (validMovie) {
+                        // Setting ratings as real rating or predicted depending on which exists.
+                        Float currentRating = realRating != 0 ? realRating : predictedRating;
+                        // Increasing sum.
+                        sum += currentRating;
+                        // Collecting rating score into a list.
+                        collectedRatings.add(currentRating);
+                    }
+                }
+
+                // If ratings for the movie were found from every user of the group, continue.
+                if (validMovie) {
+                    // Hold unprocessed ratings.
+                    Integer remainingRatings = collectedRatings.size();
+                    // Looping while there are enough ratings.
+                    while (remainingRatings > 1) {
+                        // Getting max value of ratings
+                        Float max = Collections.max(collectedRatings);
+                        // Getting min value ratings
+                        Float min = Collections.min(collectedRatings);
+                        // If absolute value of max subtracted from min
+                        // is over the treshold, we have a disagreement.
+                        if (Math.abs(min - max) >= threshold) {
+                            // Calculate average of their ratings and sum it up.
+                            predictSum += (min + max) / 2;
+                            // Increase the number of disagreements.
+                            disagreements += 1;
+                        }
+                        // Removing values that have been processed.
+                        collectedRatings.remove(max);
+                        collectedRatings.remove(min);
+                        // Remove 2 from remaining ratings, since 2 values (min and max) were processed.
+                        remainingRatings -= 2;
+                    }
+                    // Using average of disagreements as predictor if disagreements were found,
+                    // otherwise use average aggregation as predictor.
+                    Float prediction = disagreements > 0 ? ((1 - alpha) * predictSum / disagreements)
+                            : ((1 - alpha) * sum / group.getUsers().size());
+                    // Adding prediction for the movie.
+                    groupRecommendations.put(movieId, prediction);
+                }
+
+            }
+        }
+        // Getting top 20 recommended movies
+        ArrayList<Integer> movieRecommendations = helper.getKSlice(20, groupRecommendations);
+        group.setTop20Movies(movieRecommendations);
+        return groupRecommendations;
+    }
+
+    /**
+     * Perform sequential recommendation for a group. Prints top-20 recommendations
+     * for the group.
+     * 
+     * @param group Group object that contains n users.
+     * 
+     * @return void.
+     */
+    public static void sequentialRecommendation(Group group) {
+        int i;
+        float alpha = 0.0f;
+        float threshold = 2.0f;
+        for (i = 0; i < 2; i++) {
+            HashMap<Integer, Float> recommendations = threshDisAggWithAlpha(group, threshold, alpha);
+            System.out.println(recommendations.size());
         }
     }
 
@@ -509,7 +571,7 @@ public class Recommender {
      * @param user2 User object 2
      * @return Pearson's correlation coefficient for two arrays (users).
      */
-    public static float calculateSimilarity2(User user1, User user2) {
+    public static float calculateSimilarity(User user1, User user2) {
         ArrayList<Integer> common = user1.getCommonMovies(user2);
 
         // common array length should be higher than two to compute correlation

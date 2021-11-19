@@ -1,7 +1,4 @@
 import java.util.*;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.LinkedList;
 
 public class User {
     private Integer id;

@@ -1,0 +1,12 @@
+1. Lasketaan ryhmälle top-20 käyttäen keskiarvoa
+2. Käydään jokainen ryhmän jäsen läpi
+    1. Lasketaan jokaisen henkilön tyytyväisyys kussakin iteraatiossa (5 kpl)
+    2. tyytyväisyys lasketaan jakamalla käyttäjän arvioiden/ennustuksen summalla
+    ryhmälle suositelluista elokuvista ----
+    3. Saadaan tyytyväisyystulos.
+3. Lasketaan jokaiselle käyttäjälle kokonaistyytyväisyys
+4. Lasketaan ryhmälle jokaisen iteraation tyytyväisyystulos
+    1. Lasketaan keskiarvo jokaisen ryhmän käyttäjän tyytyväisyydestä per iteraatio.
+5. Lasketaan ryhmälle kokonaistyytyväisyys
+
+

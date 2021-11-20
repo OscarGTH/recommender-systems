@@ -9,4 +9,26 @@
     1. Lasketaan keskiarvo jokaisen ryhmän käyttäjän tyytyväisyydestä per iteraatio.
 5. Lasketaan ryhmälle kokonaistyytyväisyys
 
+------------------------------------------------
+
+recommendGroup()
+  -  sequentialRecommendation()
+        -  sequentialAggregation()
+        -  calculateUsersSatisfaction()
+
+
+Sequential aggregation is our own implementation for computing predicted
+ratings for group. It works in a same way as hybrid method presented in course material, except instead
+of using weighted combination of average and least misery approaches it uses weighted combination of our
+own treshold disagreement approach and least misery approach.
+
+  - our own disagreement method is already considering disagreements between users, but in case some user is still 
+    dissatisfied with iteration results, least misery approach will get more weight in next iteration
+
+  - sequential aggregation only computes predictions for movies that none of the group members has seen
+
+
+
+
+
 

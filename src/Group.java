@@ -49,6 +49,10 @@ public class Group {
         return userIterationSat;
     }
 
+    public void clearUserIterationSat() {
+        userIterationSat.clear();
+    }
+
     public ArrayList<Integer> getRecommendedMovies() {
         return recommendedMovies;
     }

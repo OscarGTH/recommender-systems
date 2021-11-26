@@ -70,8 +70,9 @@ public class Recommender {
         // Validating information
         System.out.println(recommendations.size());
         if (movieId > 0 && movieId <= movies.length) {
+            ArrayList<Integer> resultSet = new ArrayList<>();
             for (User user : group.getUsers()) {
-                System.out.println(user.getPeerTuples(users, movieId, 50));
+                resultSet.add(determineAtomic(user.getPeerTuples(users, movieId, 100)));
             }
         } else {
             System.out.println("The movie id does not exist in the database.");
@@ -84,6 +85,24 @@ public class Recommender {
             System.out.println("GENRE CHOSEN ");
         }
 
+    }
+
+    public static Integer determineAtomic(ArrayList<ArrayList<Float>> tuples) {
+        System.out.println("-----------------------------");
+        Integer noRating = 0;
+        for (ArrayList<Float> tuple : tuples) {
+            Float score = tuple.get(1);
+            if (score == 0.0f) {
+                noRating += 1;
+            } else {
+                if (score > 0.0f && score < 3.0f) {
+                    System.out.println("Peer gave a low score of " + Float.toString(score));
+                }
+            }
+        }
+        System.out.println("No ratings from " + Integer.toString(noRating) + " peers.");
+
+        return 1;
     }
 
     public static void explainPositionAbsenteeism(Integer movieId, Integer rank, ArrayList<Integer> recommendations,

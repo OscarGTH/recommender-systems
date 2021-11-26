@@ -1,3 +1,4 @@
+import java.lang.reflect.Array;
 import java.util.*;
 
 public class User {
@@ -127,5 +128,19 @@ public class User {
             return 0.0f;
         }
 
+    }
+
+    public ArrayList<ArrayList<Float>> getPeerTuples(User[] users, Integer movieId, Integer slice) {
+        ArrayList<ArrayList<Float>> tupleList = new ArrayList<>();
+
+        for (Integer userId : getKSimilarUsers(slice)) {
+            ArrayList<Float> tuple = new ArrayList<>();
+            tuple.add((float) userId);
+            tuple.add((float) users[userId].getRatingForMovie(movieId));
+            tuple.add(getSimilarity(userId));
+            tupleList.add(tuple);
+        }
+
+        return tupleList;
     }
 }

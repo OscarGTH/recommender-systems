@@ -16,8 +16,7 @@ public class Recommender {
     private static final DecimalFormat df = new DecimalFormat("0.0");
 
     public static void main(String[] args) throws Exception {
-        // getLineCount(dataSource);
-        // readMovieData(dataSource);
+
         System.out.println("Initializing movies...");
         initMovies(movieSource);
         System.out.println("Initializing users...");
@@ -32,8 +31,67 @@ public class Recommender {
         userGroup.add(users[3]);
         Group group = new Group(userGroup);
         System.out.println("Calculating recommendations for a group of users...\n");
-        recommendGroup(group);
+        ArrayList<Integer> groupRecommendations = recommendGroup(group);
+        runQuestioner(groupRecommendations, group);
 
+    }
+
+    public static void runQuestioner(ArrayList<Integer> recommendations, Group group) {
+        System.out.println(
+                "\nChoose your Why-not question and input the type number: (1) Atomic - (2) Genre - (3) Rank of movie");
+        // Initializing scanner
+        Scanner reader = new Scanner(System.in);
+        // Reading type selection
+        String type = reader.nextLine();
+        switch (type) {
+        case "1":
+            System.out.println("Why wasn't some movie recommended?\n Input movie identifier: ");
+            explainAtomic(reader.nextInt(), recommendations, group);
+            break;
+        case "2":
+            System.out.println("Why wasn't some genre recommended?\n Input genre name: ");
+            explainGroup(reader.nextLine(), recommendations, group);
+            break;
+        case "3":
+            System.out.print("Why wasn't some movie in rank?\n Input movie identifier: ");
+            Integer input3 = reader.nextInt();
+            System.out.println("Input rank: ");
+            Integer input4 = reader.nextInt();
+            explainPositionAbsenteeism(input3, input4, recommendations, group);
+            break;
+        default:
+            System.out.println("Invalid selection. Quitting program.");
+            break;
+        }
+        reader.close();
+    }
+
+    public static void explainAtomic(Integer movieId, ArrayList<Integer> recommendations, Group group) {
+        // Validating information
+        System.out.println(recommendations.size());
+        if (movieId > 0 && movieId <= movies.length) {
+            for (User user : group.getUsers()) {
+                System.out.println(user.getPeerTuples(users, movieId, 50));
+            }
+        } else {
+            System.out.println("The movie id does not exist in the database.");
+        }
+    }
+
+    public static void explainGroup(String genre, ArrayList<Integer> recommendations, Group group) {
+        // Validating information
+        if (genre.length() > 0) {
+            System.out.println("GENRE CHOSEN ");
+        }
+
+    }
+
+    public static void explainPositionAbsenteeism(Integer movieId, Integer rank, ArrayList<Integer> recommendations,
+            Group group) {
+        // Validating information
+        if (movieId > 0 && movieId <= movies.length && rank > 0 && rank <= movies.length) {
+            System.out.println("Position absenteeism CHOSEN ");
+        }
     }
 
     public static void initSimilarities() {
@@ -254,7 +312,7 @@ public class Recommender {
         return similarity;
     }
 
-    public static void recommendGroup(Group group) {
+    public static ArrayList<Integer> recommendGroup(Group group) {
         ArrayList<User> users = group.getUsers();
         // Iterating through every user of group
         for (User user : users) {
@@ -263,19 +321,20 @@ public class Recommender {
             }
         }
         // Calculate group recommendations by average aggregation.
-        // System.out.println("Average approach Top 20:\n");
-        // averageAggregation(users);
+        System.out.println("Average approach Top 20:\n");
+        return averageAggregation(group);
+
         // System.out.println("-------------------------");
         // System.out.println("Least misery approach Top 20:\n");
         // leastMiseryAggregation(users);
         // System.out.println("-------------------------");
         // System.out.println("Treshold Disagreement approach Top 20:\n");
         // thresholdDisagreementAggregation(users, 1.5f);
-        System.out.println("-------------------------");
-        sequentialRecommendation(group);
+        // System.out.println("-------------------------");
+        // sequentialRecommendation(group);
     }
 
-    public static void averageAggregation(ArrayList<User> userGroup) {
+    public static ArrayList<Integer> averageAggregation(Group group) {
         // (Movie ID : Predicted rating for group)
         HashMap<Integer, Float> groupRecommendations = new HashMap<>();
         int i;
@@ -288,7 +347,7 @@ public class Recommender {
             Integer movieId = movie.getMovieId();
             Float sum = 0.0f;
             // Iterating through every user of the group
-            for (User user : userGroup) {
+            for (User user : group.getUsers()) {
                 Float rating = user.getPredictionForMovie(movieId);
                 Integer realRating = user.getRatingForMovie(movieId);
                 // Checking if user hasn't rated or doesn't have prediction for the movie
@@ -302,18 +361,20 @@ public class Recommender {
             }
             // If ratings for the movie were found from every user of the group, continue.
             if (validMovie) {
-                Float prediction = sum / userGroup.size();
+                Float prediction = sum / group.getUsers().size();
                 // Adding prediction for the movie.
                 groupRecommendations.put(movieId, prediction);
+                group.setRecommendedMovie(movieId);
             }
         }
         // Getting top 20 recommended movies
         ArrayList<Integer> movieRecommendations = helper.getKSlice(20, groupRecommendations);
         // Printing every movie with their name and predicted rating.
         for (Integer movieId : movieRecommendations) {
-            System.out.println(movies[movieId].getName() + "  > Predicted rating: "
-                    + df.format(groupRecommendations.get(movieId)));
+            System.out.println("[" + Integer.toString(movieId) + "]:" + movies[movieId].getName()
+                    + "  > Predicted rating: " + df.format(groupRecommendations.get(movieId)));
         }
+        return movieRecommendations;
     }
 
     public static void leastMiseryAggregation(ArrayList<User> userGroup) {

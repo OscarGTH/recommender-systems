@@ -13,11 +13,13 @@ public class Recommender {
     final static String movieSource = "ml-100k/u.item";
     static User[] users;
     static Movie[] movies;
+    static Genre[] genres;
     static Helper helper;
     private static final DecimalFormat df = new DecimalFormat("0.0");
 
     public static void main(String[] args) throws Exception {
-
+        System.out.println("Initializing genres...");
+        initGenres(genreSource);
         System.out.println("Initializing movies...");
         initMovies(movieSource);
         System.out.println("Initializing users...");
@@ -25,6 +27,8 @@ public class Recommender {
         System.out.println("Initializing similarities...");
         initSimilarities();
         helper = new Helper();
+
+        //System.out.println(movies[1].getGenres());
 
         ArrayList<User> userGroup = new ArrayList<>();
         userGroup.add(users[23]);
@@ -251,6 +255,43 @@ public class Recommender {
 
     }
 
+    public static void initGenres(String genreSource) {
+        genres = new Genre[20];
+        try {
+            BufferedReader reader = new BufferedReader(new FileReader(genreSource));
+            while (reader.ready()) {
+                String line = reader.readLine();
+                
+                //System.out.println("line" + line);
+                
+                String[] lineData = line.split("\\|");
+                if (lineData.length > 1) {
+                    //System.out.println(lineData.length);
+                    //System.out.println(lineData[0]);
+    
+                    //System.out.println(lineData[1]);
+    
+                    
+                    String genreName = lineData[0];
+                    Integer genreId = Integer.valueOf(lineData[1]);
+    
+                    // Creating new genre object
+                    Genre genre = new Genre(genreId, genreName);
+                    genres[genreId] = genre;
+                    System.out.println(genres[genreId].getGenreName());
+                }
+                
+            }
+            if (reader != null) {
+                reader.close();
+            }
+        } catch (FileNotFoundException fnfe) {
+            System.out.println(fnfe);
+        } catch (IOException ioExc) {
+            System.out.println(ioExc);
+        }
+    }
+
     public static void initMovies(String movieSource) {
         // Movie data is saved to index which matches to movie id
         movies = new Movie[1683];
@@ -265,8 +306,18 @@ public class Recommender {
                 // Creating new movie object
                 Movie movie = new Movie(movieId);
                 movie.setName(name);
-                movies[movieId] = movie;
+                //add genres for movie
+                //in lineData genres start from index 5 and end to index 23 (e.g. index 5 matches to genres-list index 0)
+                for (int i = 5; i < 24; i++) {
+                    //valid genres are marked with 1 in the dataset
+                    if (lineData[i].equals(Integer.toString(1))) {
+                        System.out.println("genre should be added");
+                        movie.setGenre(genres[i - 5].getGenreName());
+                    }
+                }
 
+                movies[movieId] = movie;
+              
             }
             if (reader != null) {
                 reader.close();

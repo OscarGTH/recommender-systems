@@ -3,10 +3,12 @@ import java.util.ArrayList;
 public class Movie {
     private Integer id;
     private String name;
+    private ArrayList<String> genres;
     private ArrayList<Integer> allRatings;
 
     public Movie(Integer movieId) {
         this.id = movieId;
+        this.genres = new ArrayList<String>();
         this.allRatings = new ArrayList<Integer>();
     }
 
@@ -16,6 +18,14 @@ public class Movie {
 
     public void setRating(Integer rating) {
         allRatings.add(rating);
+    }
+
+    public void setGenre(String genre) {
+        genres.add(genre);
+    }
+
+    public ArrayList<String> getGenres() {
+        return genres;
     }
 
     public ArrayList<Integer> getAllRatings() {

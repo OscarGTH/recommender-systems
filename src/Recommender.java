@@ -5,8 +5,6 @@ import java.io.IOException;
 // Importing utility classes
 import java.util.*;
 
-import javax.swing.plaf.synth.SynthSplitPaneUI;
-
 import java.text.DecimalFormat;
 
 public class Recommender {

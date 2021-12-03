@@ -132,13 +132,26 @@ public class User {
 
     public ArrayList<ArrayList<Float>> getPeerTuples(User[] users, Integer movieId, Integer slice) {
         ArrayList<ArrayList<Float>> tupleList = new ArrayList<>();
+        /*
+         * Each tuple describes a peer who has rated the targeted item and consists of
+         * three values:
+         * (i) the peer’s id,
+         * (ii) the score that they have given to the item,
+         * (iii) the similarity shared between the peer and the user
+         */
 
         for (Integer userId : getKSimilarUsers(slice)) {
-            ArrayList<Float> tuple = new ArrayList<>();
-            tuple.add((float) userId);
-            tuple.add((float) users[userId].getRatingForMovie(movieId));
-            tuple.add(getSimilarity(userId));
-            tupleList.add(tuple);
+            // Making sure that the peer has rated the movie
+            if (users[userId].hasRatedMovie(movieId)) {
+                ArrayList<Float> tuple = new ArrayList<>();
+                // Add user id to tuple
+                tuple.add((float) userId);
+                // Add given rating for movie to tuple
+                tuple.add((float) users[userId].getRatingForMovie(movieId));
+                // Add similarity to tuple
+                tuple.add(getSimilarity(userId));
+                tupleList.add(tuple);
+            }
         }
 
         return tupleList;

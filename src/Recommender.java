@@ -4,6 +4,9 @@ import java.io.FileReader;
 import java.io.IOException;
 // Importing utility classes
 import java.util.*;
+
+import javax.swing.plaf.synth.SynthSplitPaneUI;
+
 import java.text.DecimalFormat;
 
 public class Recommender {
@@ -26,9 +29,9 @@ public class Recommender {
         helper = new Helper();
 
         ArrayList<User> userGroup = new ArrayList<>();
-        userGroup.add(users[1]);
-        userGroup.add(users[2]);
-        userGroup.add(users[3]);
+        userGroup.add(users[23]);
+        userGroup.add(users[256]);
+        userGroup.add(users[377]);
         Group group = new Group(userGroup);
         System.out.println("Calculating recommendations for a group of users...\n");
         ArrayList<Integer> groupRecommendations = recommendGroup(group);
@@ -44,39 +47,104 @@ public class Recommender {
         // Reading type selection
         String type = reader.nextLine();
         switch (type) {
-        case "1":
-            System.out.println("Why wasn't some movie recommended?\n Input movie identifier: ");
-            explainAtomic(reader.nextInt(), recommendations, group);
-            break;
-        case "2":
-            System.out.println("Why wasn't some genre recommended?\n Input genre name: ");
-            explainGroup(reader.nextLine(), recommendations, group);
-            break;
-        case "3":
-            System.out.print("Why wasn't some movie in rank?\n Input movie identifier: ");
-            Integer input3 = reader.nextInt();
-            System.out.println("Input rank: ");
-            Integer input4 = reader.nextInt();
-            explainPositionAbsenteeism(input3, input4, recommendations, group);
-            break;
-        default:
-            System.out.println("Invalid selection. Quitting program.");
-            break;
+            case "1":
+                System.out.println("Why wasn't some movie recommended?\n Input movie identifier: ");
+                explainAtomic(reader.nextInt(), recommendations, group);
+                break;
+            case "2":
+                System.out.println("Why wasn't some genre recommended?\n Input genre name: ");
+                explainGroup(reader.nextLine(), recommendations, group);
+                break;
+            case "3":
+                System.out.print("Why wasn't some movie in rank?\n Input movie identifier: ");
+                Integer input3 = reader.nextInt();
+                System.out.println("Input rank: ");
+                Integer input4 = reader.nextInt();
+                explainPositionAbsenteeism(input3, input4, recommendations, group);
+                break;
+            default:
+                System.out.println("Invalid selection. Quitting program.");
+                break;
         }
         reader.close();
     }
 
     public static void explainAtomic(Integer movieId, ArrayList<Integer> recommendations, Group group) {
         // Validating information
-        System.out.println(recommendations.size());
         if (movieId > 0 && movieId <= movies.length) {
-            ArrayList<Integer> resultSet = new ArrayList<>();
+            ArrayList<ArrayList<Float>> resultSet = new ArrayList<>();
+
             for (User user : group.getUsers()) {
                 resultSet.add(determineAtomic(user.getPeerTuples(users, movieId, 100)));
             }
+            // Turn individual peer statistics into group statistics.
+            ArrayList<Float> explData = new ArrayList<>();
+            explData = structureAtomic(resultSet);
+
+            // Explanation: Recommended movies contain the queried movie.
+            if (recommendations.contains(movieId)) {
+                System.out.println("Queried movie is included in recommendations already.");
+            }
+
+            // Explanation : User asked for few items (Movie was found from ranks 21 to 40.)
+            else if (group.getTop40Movies().contains(movieId)) {
+                System.out.println("Movie was found from top 40 recommendations.");
+            }
+
+            // Explanation : No peers of the group's members have rated the item.
+            else if (explData.get(3) == 0) {
+                System.out.println("None of the similar users of the group's members have rated this item.");
+            }
+
+            // Explanation : Too few ratings from peers of the group.
+            else if (explData.get(3) < 10) {
+                System.out.println("Too few similar users of the group's members have rated this item.");
+            }
+
+            // Explanation : Dislike ratio of peers is too high (Majority of dislikes)
+            else if (explData.get(2) > explData.get(3) / 2) {
+                System.out.println("More than half of the group's peers have disliked this item.");
+            }
+
+            // Explanation : Peers of the group's users haven't like the item
+            else if (explData.get(0) < 4) {
+                System.out.println("Similar users of group's members haven't liked this item.");
+            }
+
+            // Statistics for debugging.
+            System.out.println("Average of peer ratings was " + Float.toString(explData.get(0)));
+            System.out.println("Dislike count was " + Float.toString(explData.get(2)));
+            System.out.println("Like count was " + Float.toString(explData.get(1)));
+            System.out.println("Total peer count was " + Float.toString(explData.get(3)));
+
         } else {
+            // Explanation : Movie does not exist.
             System.out.println("The movie id does not exist in the database.");
         }
+    }
+
+    // Input: List of lists that contain peer statistics for a single user.
+    // Output: List of values that have been combined for the group.
+    public static ArrayList<Float> structureAtomic(ArrayList<ArrayList<Float>> resultSet) {
+        Float totalCount = 0.0f;
+        Float totalDislikes = 0.0f;
+        Float totalLikes = 0.0f;
+        Float average = 0.0f;
+        // Going through each user's statistics
+        for (ArrayList<Float> stats : resultSet) {
+            average += stats.get(0);
+            totalLikes += stats.get(1);
+            totalDislikes += stats.get(2);
+            totalCount += stats.get(3);
+        }
+
+        ArrayList<Float> structuredData = new ArrayList<>();
+        structuredData.add(average / resultSet.size());
+        structuredData.add(totalLikes);
+        structuredData.add(totalDislikes);
+        structuredData.add(totalCount);
+        // Returning combined statistics for the group
+        return structuredData;
     }
 
     public static void explainGroup(String genre, ArrayList<Integer> recommendations, Group group) {
@@ -87,22 +155,40 @@ public class Recommender {
 
     }
 
-    public static Integer determineAtomic(ArrayList<ArrayList<Float>> tuples) {
-        System.out.println("-----------------------------");
-        Integer noRating = 0;
-        for (ArrayList<Float> tuple : tuples) {
-            Float score = tuple.get(1);
-            if (score == 0.0f) {
-                noRating += 1;
-            } else {
-                if (score > 0.0f && score < 3.0f) {
-                    System.out.println("Peer gave a low score of " + Float.toString(score));
+    public static ArrayList<Float> determineAtomic(ArrayList<ArrayList<Float>> tuples) {
+
+        // Creating new tuple for helper data
+        // Contains average of peer ratings [0], peer like count [1],
+        // peer dislike count [2] and
+        // total count [3].
+        ArrayList<Float> explanationTuple = new ArrayList<>();
+        // Initialize helper variables
+        Float totalScore = 0.0f;
+        Integer likeCount = 0;
+        Integer dislikeCount = 0;
+        Float avg = totalScore / tuples.size();
+        // Check that there are more than 0 tuples
+        if (tuples.size() > 0) {
+            // Iterate tuples
+            for (ArrayList<Float> tuple : tuples) {
+                Float score = tuple.get(1);
+                // Sum up score (Could we use similarity as weight?)
+                totalScore += tuple.get(1);
+
+                // Calculate dislike to like ratio using 4 as the threshold
+                if (score >= 4) {
+                    likeCount++;
+                } else {
+                    dislikeCount++;
                 }
             }
+            avg = totalScore / tuples.size();
         }
-        System.out.println("No ratings from " + Integer.toString(noRating) + " peers.");
-
-        return 1;
+        explanationTuple.add(avg);
+        explanationTuple.add((float) likeCount);
+        explanationTuple.add((float) dislikeCount);
+        explanationTuple.add((float) tuples.size());
+        return explanationTuple;
     }
 
     public static void explainPositionAbsenteeism(Integer movieId, Integer rank, ArrayList<Integer> recommendations,
@@ -388,6 +474,10 @@ public class Recommender {
         }
         // Getting top 20 recommended movies
         ArrayList<Integer> movieRecommendations = helper.getKSlice(20, groupRecommendations);
+
+        // Save 40 movies to save for later
+        group.setTop40Movies(helper.getKSlice(40, groupRecommendations));
+
         // Printing every movie with their name and predicted rating.
         for (Integer movieId : movieRecommendations) {
             System.out.println("[" + Integer.toString(movieId) + "]:" + movies[movieId].getName()

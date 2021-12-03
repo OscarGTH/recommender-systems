@@ -5,8 +5,8 @@ public class Group {
     private ArrayList<Float> userIterationSat;
     private ArrayList<Float> totalIterationSat;
     private ArrayList<Integer> recommendedMovies;
-    private ArrayList<Integer> top40Movies;
     private ArrayList<User> userList;
+    private HashMap<Integer, Float> predictions;
     private float totalSat;
     Helper helper = new Helper();
 
@@ -15,7 +15,7 @@ public class Group {
         this.totalIterationSat = new ArrayList<>();
         this.userIterationSat = new ArrayList<>();
         this.recommendedMovies = new ArrayList<>();
-        this.top40Movies = new ArrayList<>();
+        this.predictions = new HashMap<Integer, Float>();
         this.totalSat = 0.0f;
     }
 
@@ -67,11 +67,11 @@ public class Group {
         this.recommendedMovies.addAll(movies);
     }
 
-    public void setTop40Movies(ArrayList<Integer> movies) {
-        top40Movies.addAll(movies);
+    public void setPredictions(HashMap<Integer, Float> predicts) {
+        predictions.putAll(predicts);
     }
 
-    public ArrayList<Integer> getTop40Movies() {
-        return top40Movies;
+    public ArrayList<Integer> getKRecommendedMovies(int k) {
+        return helper.getKSlice(k, predictions);
     }
 }

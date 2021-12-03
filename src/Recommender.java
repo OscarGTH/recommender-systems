@@ -70,6 +70,7 @@ public class Recommender {
     public static void explainAtomic(Integer movieId, ArrayList<Integer> recommendations, Group group) {
         // Validating information
         if (movieId > 0 && movieId <= movies.length) {
+            System.out.println("\n");
             ArrayList<ArrayList<Float>> resultSet = new ArrayList<>();
 
             for (User user : group.getUsers()) {
@@ -85,7 +86,7 @@ public class Recommender {
             }
 
             // Explanation : User asked for few items (Movie was found from ranks 21 to 40.)
-            else if (group.getTop40Movies().contains(movieId)) {
+            else if (group.getKRecommendedMovies(40).contains(movieId)) {
                 System.out.println("Movie was found from top 40 recommendations.");
             }
 
@@ -99,21 +100,40 @@ public class Recommender {
                 System.out.println("Too few similar users of the group's members have rated this item.");
             }
 
-            // Explanation : Dislike ratio of peers is too high (Majority of dislikes)
-            else if (explData.get(2) > explData.get(3) / 2) {
-                System.out.println("More than half of the group's peers have disliked this item.");
-            }
-
-            // Explanation : Peers of the group's users haven't like the item
+            // Explanation : Peers of the group's users haven't liked the item
             else if (explData.get(0) < 4) {
                 System.out.println("Similar users of group's members haven't liked this item.");
             }
 
-            // Statistics for debugging.
-            System.out.println("Average of peer ratings was " + Float.toString(explData.get(0)));
-            System.out.println("Dislike count was " + Float.toString(explData.get(2)));
-            System.out.println("Like count was " + Float.toString(explData.get(1)));
-            System.out.println("Total peer count was " + Float.toString(explData.get(3)));
+            // Explanation : Dislike ratio of peers is too high (Majority of dislikes)
+            else if (explData.get(2) > explData.get(3) / 2) {
+                System.out.println("Majority of the group's peers have disliked this item.");
+            }
+
+            // Explanation: Most similar users of the group's members have disliked the
+            // item.
+            else if (explData.get(4) > explData.get(3) / 3) {
+                System.out.println("The most similar users of the group's members have disliked the item.");
+            }
+
+            // Explanation: Majority has liked, but the score hasn't been competetive enough
+            // to land a high rank.
+            else {
+                System.out.println("While majority of the group's peer liked this item, " +
+                        "there were too many other more suitable movies to recommend.");
+            }
+
+            System.out.println("\n<-----------------------STATISTICS-------------------------------->");
+            System.out.println(
+                    "Total of " + Math.round(explData.get(3)) + " peers were found for this group.");
+            System.out.println("Average of peer ratings was " + df.format(explData.get(0)));
+            System.out.println(Math.round(explData.get(1)) + " peers liked this item and "
+                    + Math.round(explData.get(2)) + " disliked it.");
+            System.out.println("There were " + Math.round(explData.get(4))
+                    + " most similar peers who disliked the item.");
+            System.out.println("The item's rank is "
+                    + group.getKRecommendedMovies(group.getRecommendedMovies().size()).indexOf(movieId) + ".");
+            System.out.println("<--------------------END OF STATISTICS---------------------------->");
 
         } else {
             // Explanation : Movie does not exist.
@@ -127,20 +147,26 @@ public class Recommender {
         Float totalCount = 0.0f;
         Float totalDislikes = 0.0f;
         Float totalLikes = 0.0f;
+        Float totalSimilarDislikes = 0.0f;
         Float average = 0.0f;
+
         // Going through each user's statistics
         for (ArrayList<Float> stats : resultSet) {
             average += stats.get(0);
             totalLikes += stats.get(1);
             totalDislikes += stats.get(2);
             totalCount += stats.get(3);
+            totalSimilarDislikes += stats.get(4);
         }
 
         ArrayList<Float> structuredData = new ArrayList<>();
+
         structuredData.add(average / resultSet.size());
         structuredData.add(totalLikes);
         structuredData.add(totalDislikes);
         structuredData.add(totalCount);
+        structuredData.add(totalSimilarDislikes);
+
         // Returning combined statistics for the group
         return structuredData;
     }
@@ -164,13 +190,14 @@ public class Recommender {
         Float totalScore = 0.0f;
         Integer likeCount = 0;
         Integer dislikeCount = 0;
+        Integer similarDislikes = 0;
         Float avg = totalScore / tuples.size();
         // Check that there are more than 0 tuples
         if (tuples.size() > 0) {
             // Iterate tuples
             for (ArrayList<Float> tuple : tuples) {
                 Float score = tuple.get(1);
-                // Sum up score (Could we use similarity as weight?)
+                // Sum up score
                 totalScore += tuple.get(1);
 
                 // Calculate dislike to like ratio using 4 as the threshold
@@ -179,6 +206,13 @@ public class Recommender {
                 } else {
                     dislikeCount++;
                 }
+
+                // If peer is really similar (Pearson correlation of over 0.8) and they've given
+                // a low score, save the
+                // information.
+                if (tuple.get(2) > 0.80 && score < 4) {
+                    similarDislikes++;
+                }
             }
             avg = totalScore / tuples.size();
         }
@@ -186,6 +220,7 @@ public class Recommender {
         explanationTuple.add((float) likeCount);
         explanationTuple.add((float) dislikeCount);
         explanationTuple.add((float) tuples.size());
+        explanationTuple.add((float) similarDislikes);
         return explanationTuple;
     }
 
@@ -426,15 +461,6 @@ public class Recommender {
         // Calculate group recommendations by average aggregation.
         System.out.println("Average approach Top 20:\n");
         return averageAggregation(group);
-
-        // System.out.println("-------------------------");
-        // System.out.println("Least misery approach Top 20:\n");
-        // leastMiseryAggregation(users);
-        // System.out.println("-------------------------");
-        // System.out.println("Treshold Disagreement approach Top 20:\n");
-        // thresholdDisagreementAggregation(users, 1.5f);
-        // System.out.println("-------------------------");
-        // sequentialRecommendation(group);
     }
 
     public static ArrayList<Integer> averageAggregation(Group group) {
@@ -470,12 +496,9 @@ public class Recommender {
                 group.setRecommendedMovie(movieId);
             }
         }
+        group.setPredictions(groupRecommendations);
         // Getting top 20 recommended movies
         ArrayList<Integer> movieRecommendations = helper.getKSlice(20, groupRecommendations);
-
-        // Save 40 movies to save for later
-        group.setTop40Movies(helper.getKSlice(40, groupRecommendations));
-
         // Printing every movie with their name and predicted rating.
         for (Integer movieId : movieRecommendations) {
             System.out.println("[" + Integer.toString(movieId) + "]:" + movies[movieId].getName()

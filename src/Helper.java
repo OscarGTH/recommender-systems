@@ -51,4 +51,15 @@ public class Helper {
         }
         return validMovie;
     }
+
+    /* calculates how many of recommended movies are from given genre **/
+    public Integer howManyFromGenre(Movie[] movies, ArrayList<Integer> recommendations, String genre) {
+        Integer count = 0;
+        for (Integer movieId : recommendations) {
+            if(movies[movieId].getGenres().contains(genre)) {
+                count += 1;
+            }
+        }
+        return count;
+    }
 }

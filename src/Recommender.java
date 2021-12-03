@@ -28,12 +28,10 @@ public class Recommender {
         initSimilarities();
         helper = new Helper();
 
-        //System.out.println(movies[1].getGenres());
-
         ArrayList<User> userGroup = new ArrayList<>();
-        userGroup.add(users[23]);
-        userGroup.add(users[256]);
-        userGroup.add(users[377]);
+        userGroup.add(users[124]);
+        userGroup.add(users[346]);
+        userGroup.add(users[477]);
         Group group = new Group(userGroup);
         System.out.println("Calculating recommendations for a group of users...\n");
         ArrayList<Integer> groupRecommendations = recommendGroup(group);
@@ -140,8 +138,8 @@ public class Recommender {
             System.out.println("<--------------------END OF STATISTICS---------------------------->");
 
         } else {
-            // Explanation : Movie does not exist.
-            System.out.println("The movie id does not exist in the database.");
+            // Explanation : Genre does not exist.
+            System.out.println(" does not exist in the database.");
         }
     }
 
@@ -178,7 +176,59 @@ public class Recommender {
     public static void explainGroup(String genre, ArrayList<Integer> recommendations, Group group) {
         // Validating information
         if (genre.length() > 0) {
-            System.out.println("GENRE CHOSEN ");
+            System.out.println("\n");
+            ArrayList<ArrayList<Float>> resultSet = new ArrayList<>();
+
+            for (User user : group.getUsers()) {
+                resultSet.add(determineGenre(user.getPeerTuplesByGenre(users, movies, genre, 100)));
+            }
+            // Turn individual peer statistics into group statistics.
+            ArrayList<Float> explData = new ArrayList<>();
+            explData = structureGenre(resultSet);
+
+            //Explanation: None of the peers had rated movie from this genre
+            if(explData.get(1) == 0.0) {
+                System.out.println("None of the peers of the group members have rated movie from genre: " + genre);
+            }
+
+            //Explanation: Top20 already includes movies from this genre
+            else if (helper.howManyFromGenre(movies, recommendations, genre) > 0) {
+                Integer count = helper.howManyFromGenre(movies, recommendations, genre);
+                System.out.println(count + " movies from genre " + genre + " were recommended in top20");
+            }
+
+            // Explanation : Dislike ratio of peers is too high (Majority of dislikes)
+            else if (explData.get(2) < explData.get(3) / 2) {
+                System.out.println("Majority of the group's peers have disliked this genre.");
+            }
+
+             // Explanation: Most similar users of the group's members have disliked the
+            // item.
+            else if (explData.get(4) > explData.get(2) / 5) {
+                System.out.println(Math.round(explData.get(4)) + " of the most similar users of the group's members have disliked the item.");
+            }
+            
+            // Explanation : More peers dislike than like this genre
+            else if (explData.get(2) < explData.get(3)) {
+                System.out.println("More peers dislike than like this genre.");
+            }
+
+            // Explanation: Majority has liked this genre, but the score hasn't been competetive enough
+            // to land a high rank.
+            else {
+                System.out.println("While majority of the group's peer liked this genre, " +
+                        "there were too many more suitable movies from other genres to recommend in top 20.");
+            }
+
+            System.out.println("\n<-----------------------STATISTICS-------------------------------->");
+            System.out.println("Average of peer ratings for this genre " + df.format(explData.get(0)));
+            System.out.println(
+                    "Total of " + Math.round(explData.get(1)) + " peers have rated at least one movie from genre " + genre + ".");
+            System.out.println(Math.round(explData.get(2)) + " peers like movies from this genre.");
+            System.out.println(Math.round(explData.get(3)) + " peers dislike movies from this genre."); 
+            System.out.println("There were " + Math.round(explData.get(4))
+                    + " most similar peers who disliked this genre.");
+            System.out.println("<--------------------END OF STATISTICS---------------------------->");
         }
 
     }
@@ -190,7 +240,7 @@ public class Recommender {
         // peer dislike count [2] and
         // total count [3].
         ArrayList<Float> explanationTuple = new ArrayList<>();
-        // Initialize helper variables
+        
         Float totalScore = 0.0f;
         Integer likeCount = 0;
         Integer dislikeCount = 0;
@@ -200,6 +250,7 @@ public class Recommender {
         if (tuples.size() > 0) {
             // Iterate tuples
             for (ArrayList<Float> tuple : tuples) {
+
                 Float score = tuple.get(1);
                 // Sum up score
                 totalScore += tuple.get(1);
@@ -226,6 +277,105 @@ public class Recommender {
         explanationTuple.add((float) tuples.size());
         explanationTuple.add((float) similarDislikes);
         return explanationTuple;
+    }
+
+    public static ArrayList<Float> determineGenre(ArrayList<GroupTuple> tuples) {
+
+        // Creating new tuple for helper data:
+        // [0] peers' average rating for movies from genre
+        // [1] how many peers have rated at least one movie with selected genre
+        // [2] how many peers liked selected genre
+        // [3] how many peers disliked selected genre
+        // [4] how many of the most similar peers disliked selected genre
+        // [5] how many movies were rated by multiple peers
+        
+        ArrayList<Float> explanationTuple = new ArrayList<>();
+
+        //how many peers have rated movie with selected genre
+        Float peersInTotal = (float)tuples.size();
+
+        //for checking if peers have rated same movies
+        ArrayList<Integer> allRatedMovies = new ArrayList<>();
+        Integer sameMoviesCount = 0;
+
+        Float sumOfAverages = 0.0f;
+        Integer likeCount = 0;
+        Integer dislikeCount = 0;
+        Integer similarDislikes = 0;
+        Float totalAverage = 0.0f;
+        // Check that there are more than 0 tuples
+        if (tuples.size() > 0) {
+            // Iterate tuples
+            for (GroupTuple tuple : tuples) {
+
+                //check how many movies have been rated by multiple users
+                for(Integer movieId : tuple.getRatedMoviesByGenre()) {
+
+                    if(allRatedMovies.contains(movieId)) {
+                        sameMoviesCount += 1;
+                    }
+                    allRatedMovies.add(movieId);
+                }
+                
+                sumOfAverages += tuple.getAverage();
+
+                // Keep track how many peers like or dislike this genre
+                if (tuple.likesThisGenre()) {
+                    likeCount += 1;
+                } else {
+                    dislikeCount += 1;
+                    //specifies if disliking peer is one of the most similars
+                    if(tuple.getSimilarity() > 0.8) {
+                        similarDislikes += 1;
+                    }
+                }
+            }
+            totalAverage = sumOfAverages / tuples.size();
+        }
+        explanationTuple.add(totalAverage);
+        explanationTuple.add(peersInTotal);
+        explanationTuple.add((float) likeCount);
+        explanationTuple.add((float) dislikeCount);
+        explanationTuple.add((float) similarDislikes);
+        explanationTuple.add((float) sameMoviesCount);
+        return explanationTuple;
+    }
+
+    // Input: List of lists that contain peer statistics for a single user.
+    // Output: List of values that have been combined for the group.
+    public static ArrayList<Float> structureGenre(ArrayList<ArrayList<Float>> resultSet) {
+        Float sumOfAverages = 0.0f;
+        Float totalPeers = 0.0f;
+        Float totalDislikes = 0.0f;
+        Float totalLikes = 0.0f;
+        Float totalSimilarDislikes = 0.0f;
+
+        //set to -1 if peers of some user dont have any movies in common
+        Float sameMoviesCount = 0.0f;
+
+        // Going through each user's statistics
+        for (ArrayList<Float> stats : resultSet) {
+            sumOfAverages += stats.get(0);
+            totalPeers += stats.get(1);
+            totalLikes += stats.get(2);
+            totalDislikes += stats.get(3);
+            totalSimilarDislikes += stats.get(4);
+            if(stats.get(5) == 0.0) {
+                sameMoviesCount = (float)-1;
+            }
+        }
+
+        ArrayList<Float> structuredData = new ArrayList<>();
+
+        structuredData.add(sumOfAverages / resultSet.size());
+        structuredData.add(totalPeers);
+        structuredData.add(totalLikes);
+        structuredData.add(totalDislikes);
+        structuredData.add(totalSimilarDislikes);
+        structuredData.add(sameMoviesCount);
+        
+        // Returning combined statistics for the group
+        return structuredData;
     }
 
     public static void explainPositionAbsenteeism(Integer movieId, Integer rank, ArrayList<Integer> recommendations,
@@ -296,17 +446,9 @@ public class Recommender {
             BufferedReader reader = new BufferedReader(new FileReader(genreSource));
             while (reader.ready()) {
                 String line = reader.readLine();
-                
-                //System.out.println("line" + line);
-                
                 String[] lineData = line.split("\\|");
+
                 if (lineData.length > 1) {
-                    //System.out.println(lineData.length);
-                    //System.out.println(lineData[0]);
-    
-                    //System.out.println(lineData[1]);
-    
-                    
                     String genreName = lineData[0];
                     Integer genreId = Integer.valueOf(lineData[1]);
     
@@ -346,7 +488,6 @@ public class Recommender {
                 for (int i = 5; i < 24; i++) {
                     //valid genres are marked with 1 in the dataset
                     if (lineData[i].equals(Integer.toString(1))) {
-                        System.out.println("genre should be added");
                         movie.setGenre(genres[i - 5].getGenreName());
                     }
                 }
@@ -553,7 +694,8 @@ public class Recommender {
         // Printing every movie with their name and predicted rating.
         for (Integer movieId : movieRecommendations) {
             System.out.println("[" + Integer.toString(movieId) + "]:" + movies[movieId].getName()
-                    + "  > Predicted rating: " + df.format(groupRecommendations.get(movieId)));
+                    + "  > Predicted rating: " + df.format(groupRecommendations.get(movieId))
+                    + " " + movies[movieId].getGenres());
         }
         return movieRecommendations;
     }

@@ -156,4 +156,31 @@ public class User {
 
         return tupleList;
     }
+
+    public ArrayList<GroupTuple> getPeerTuplesByGenre(User[] users, Movie[] movies, String genre, Integer slice) {
+        
+        //List of GroupTuples: 
+        //GroupTuple contains peer as User-object, similarity value
+        //and list of movies this peer has rated wit this genre
+        ArrayList<GroupTuple> tupleList = new ArrayList<>();
+        
+        for (Integer userId : getKSimilarUsers(slice)) {
+
+            GroupTuple tuple = new GroupTuple(users[userId], getSimilarity(userId));
+
+            //Iterates through all movies
+            for (int i = 1; i < movies.length; i++) {
+                //Checks that peer has rated the movie and that the movie belongs to selected genre
+                if(users[userId].hasRatedMovie(i) && movies[i].getGenres().contains(genre)) {
+                    tuple.setMovieAsRated(i);
+                }
+            }
+            //add tuple to list only if peer has rated at least one movie from selected genre
+            if(tuple.getRatedMoviesByGenre().size() > 0) {
+                tupleList.add(tuple);
+            }
+            
+        }
+        return tupleList;
+    }
 }
